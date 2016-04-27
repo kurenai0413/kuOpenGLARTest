@@ -144,7 +144,7 @@ void DispFunc()
 
 	//gluPerspective is arbitrarily set, you will have to determine these values based
 	//on the intrinsic camera parameters
-	gluPerspective(60, tempimage.size().width*1.0 / tempimage.size().height, 1, 20);
+	gluPerspective(fovy, aspect, 0.1, 10000);
 
 	// you will have to set modelview matrix using extrinsic camera params
 	glMatrixMode(GL_MODELVIEW);
@@ -161,8 +161,8 @@ void DispFunc()
 	glTranslatef(0, 0, 0); //this is an arbitrary position for demonstration
 						   //you will need to adjust your transformations to match the positions where
 						   //you want to draw your objects(i.e. chessboard center, chessboard corners)
-//	glutSolidTeapot(0.5);
-	glutSolidSphere(.3, 100, 100);
+	glutWireTeapot(0.5);
+//	glutSolidSphere(.3, 100, 100);
 	DrawAxes(1.0);
 	glPopMatrix();
 	glClear(GL_DEPTH_BUFFER_BIT);

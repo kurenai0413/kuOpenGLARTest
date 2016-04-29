@@ -34,6 +34,7 @@ void DispExtParam();
 void SetCB3DPts();
 bool LoadCameraParameters(char * Filename);
 void SaveExtrinsicParameters(char * Filename);
+void DrawCubeCV(Mat Img, vector<Point2f> CubeVertex, const cv::Scalar &color);
 void DrawAxes(float length);
 //void myKeyboard(unsigned char key, int mouseX, int mouseY);
 //void myReshape(int width, int height);
@@ -94,13 +95,14 @@ void DispFunc()
 	
 	// flip camera frame
 	Mat tempimage;
-	flip(frame, tempimage, 0);
-
-	cvtColor(tempimage, GrayImg, CV_RGB2GRAY);
+	
+	cvtColor(frame, GrayImg, CV_RGB2GRAY);
 
 	bool CBFound = findChessboardCorners(GrayImg, Size(5, 7), CB2DPts,
 										 CALIB_CB_ADAPTIVE_THRESH + CALIB_CB_NORMALIZE_IMAGE);
-	drawChessboardCorners(tempimage, Size(5, 7), Mat(CB2DPts), CBFound);
+	drawChessboardCorners(frame, Size(5, 7), Mat(CB2DPts), CBFound);
+
+	
 
 	if (CBFound)
 	{
@@ -109,30 +111,53 @@ void DispFunc()
 		solvePnP(CB3DPts, CB2DPts, IntParam, DistParam, RotationVec, TranslationVec);
 		Rodrigues(RotationVec, RotationMat);
 
-		vector<Point3f> Test3DPts;
-		vector<Point2f> Projected2DPts;
+		vector<Point3f> CubeA3DPts;
+		vector<Point3f> CubeB3DPts;
 
-		Test3DPts.resize(4);
-		Test3DPts[0] = Point3f(12.5, 0, 0);
-		Test3DPts[1] = Point3f(37.5, 25, 0);
-		Test3DPts[2] = Point3f(37.5, 75, 0);
-		Test3DPts[3] = Point3f(-37.5, 100, 0);
+		vector<Point2f> CubeAProjected2DPts;
+		vector<Point2f> CubeBProjected2DPts;
 
-		projectPoints(Test3DPts,
-			RotationVec, TranslationVec,
-			IntParam, DistParam, Projected2DPts);
 
-		for (int i = 0; i < 4; i++)
-		{
-			circle(tempimage, Projected2DPts[i], 1, CV_RGB(255, 0, 0), 5, CV_AA);
-		}
+		CubeA3DPts.resize(8);
+		CubeA3DPts[0] = Point3f(-25, 0, 0);
+		CubeA3DPts[1] = Point3f(0, 0, 0);
+		CubeA3DPts[2] = Point3f(0, 25, 0);
+		CubeA3DPts[3] = Point3f(-25, 25, 0);
+		CubeA3DPts[4] = Point3f(-25, 0, 25);
+		CubeA3DPts[5] = Point3f(0, 0, 25);
+		CubeA3DPts[6] = Point3f(0, 25, 25);
+		CubeA3DPts[7] = Point3f(-25, 25, 25);
 
-		Test3DPts.clear();
+		CubeB3DPts.resize(8);
+		CubeB3DPts[0] = Point3f(-50, 0, 0);
+		CubeB3DPts[1] = Point3f(0, 0, 0);
+		CubeB3DPts[2] = Point3f(0, 50, 0);
+		CubeB3DPts[3] = Point3f(-50, 50, 0);
+		CubeB3DPts[4] = Point3f(-50, 0, 50);
+		CubeB3DPts[5] = Point3f(0, 0, 50);
+		CubeB3DPts[6] = Point3f(0, 50, 50);
+		CubeB3DPts[7] = Point3f(-50, 50, 50);
+
+
+		projectPoints(CubeA3DPts,
+					  RotationVec, TranslationVec,
+					  IntParam, DistParam, CubeAProjected2DPts);
+
+		projectPoints(CubeB3DPts,
+					  RotationVec, TranslationVec,
+					  IntParam, DistParam, CubeBProjected2DPts);
+
+
+		DrawCubeCV(frame, CubeAProjected2DPts, CV_RGB(0,255,0));
+		DrawCubeCV(frame, CubeBProjected2DPts, CV_RGB(255,0,0));
 
 		DispExtParam();
 		SaveExtrinsicParameters("ExtParam_Left.txt");
 	}
+	
+	imshow("ImageQQ", frame);
 
+	flip(frame, tempimage, 0);
 	glDrawPixels(tempimage.size().width, tempimage.size().height, GL_BGR_EXT, GL_UNSIGNED_BYTE, tempimage.ptr());
 
 	// set viewport
@@ -161,7 +186,7 @@ void DispFunc()
 	glTranslatef(0, 0, 0); //this is an arbitrary position for demonstration
 						   //you will need to adjust your transformations to match the positions where
 						   //you want to draw your objects(i.e. chessboard center, chessboard corners)
-	glutWireTeapot(0.5);
+//	glutWireTeapot(0.5);
 //	glutSolidSphere(.3, 100, 100);
 	DrawAxes(1.0);
 	glPopMatrix();
@@ -214,10 +239,10 @@ void DispParam()
 	for (int i = 0; i < 3; i++)
 	{
 		printf("%f %f %f\n", IntParam.at<float>(i, 0), IntParam.at<float>(i, 1),
-			IntParam.at<float>(i, 2));
+							 IntParam.at<float>(i, 2));
 	}
 	printf("%f %f %f %f\n", DistParam.at<float>(0, 0), DistParam.at<float>(0, 1),
-		DistParam.at<float>(0, 2), DistParam.at<float>(0, 3));
+							DistParam.at<float>(0, 2), DistParam.at<float>(0, 3));
 }
 
 void DispExtParam()
@@ -225,14 +250,14 @@ void DispExtParam()
 	for (int i = 0; i < 3; i++)
 	{
 		cout << RotationMat.at<double>(i, 0) << " "
-			<< RotationMat.at<double>(i, 1) << " "
-			<< RotationMat.at<double>(i, 2) << endl;
+			 << RotationMat.at<double>(i, 1) << " "
+			 << RotationMat.at<double>(i, 2) << endl;
 	}
 
 	cout << endl;
 	cout << TranslationVec.at<double>(0, 0) << " "
-		<< TranslationVec.at<double>(1, 0) << " "
-		<< TranslationVec.at<double>(2, 0) << endl;
+		 << TranslationVec.at<double>(1, 0) << " "
+		 << TranslationVec.at<double>(2, 0) << endl;
 	cout << endl;
 }
 
@@ -251,15 +276,13 @@ bool LoadCameraParameters(char * Filename)
 		for (int i = 0; i < 3; i++)
 		{
 			fscanf_s(fp, "%f %f %f\n", &IntParam.at<float>(i, 0),
-				&IntParam.at<float>(i, 1),
-				&IntParam.at<float>(i, 2));
-
-
+									   &IntParam.at<float>(i, 1),
+									   &IntParam.at<float>(i, 2));
 		}
 		fscanf_s(fp, "%f %f %f %f\n", &DistParam.at<float>(0, 0),
-			&DistParam.at<float>(0, 1),
-			&DistParam.at<float>(0, 2),
-			&DistParam.at<float>(0, 3));
+									  &DistParam.at<float>(0, 1),
+									  &DistParam.at<float>(0, 2),
+									  &DistParam.at<float>(0, 3));
 		fclose(fp);
 
 		return true;
@@ -274,12 +297,35 @@ void SaveExtrinsicParameters(char * Filename)
 	for (int i = 0; i < 3; i++)
 	{
 		fprintf(fp, "%f %f %f %f\n", RotationMat.at<double>(i, 0),
-			RotationMat.at<double>(i, 1),
-			RotationMat.at<double>(i, 2),
-			TranslationVec.at<double>(i, 0));
+									 RotationMat.at<double>(i, 1),
+									 RotationMat.at<double>(i, 2),
+									 TranslationVec.at<double>(i, 0));
 	}
 	fprintf(fp, "0.0 0.0 0.0 1.0");
 	fclose(fp);
+}
+
+void DrawCubeCV(Mat Img, vector<Point2f> CubeVertex, const cv::Scalar &color)
+{
+	for (int i = 0; i < 8; i++)
+	{
+		circle(Img, CubeVertex[i], 1, color, 5, CV_AA);
+	}
+
+	line(Img, CubeVertex[0], CubeVertex[1], color, 1, CV_AA);
+	line(Img, CubeVertex[1], CubeVertex[2], color, 1, CV_AA);
+	line(Img, CubeVertex[2], CubeVertex[3], color, 1, CV_AA);
+	line(Img, CubeVertex[3], CubeVertex[0], color, 1, CV_AA);
+
+	line(Img, CubeVertex[4], CubeVertex[5], color, 1, CV_AA);
+	line(Img, CubeVertex[5], CubeVertex[6], color, 1, CV_AA);
+	line(Img, CubeVertex[6], CubeVertex[7], color, 1, CV_AA);
+	line(Img, CubeVertex[7], CubeVertex[4], color, 1, CV_AA);
+
+	line(Img, CubeVertex[0], CubeVertex[4], color, 1, CV_AA);
+	line(Img, CubeVertex[1], CubeVertex[5], color, 1, CV_AA);
+	line(Img, CubeVertex[2], CubeVertex[6], color, 1, CV_AA);
+	line(Img, CubeVertex[3], CubeVertex[7], color, 1, CV_AA);
 }
 
 //void myKeyboard(unsigned char key, int mouseX, int mouseY)

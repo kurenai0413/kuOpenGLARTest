@@ -9,6 +9,9 @@
 using namespace cv;
 using namespace std;
 
+#define		ImgWidth	640
+#define		ImgHeight	480
+
 Mat					FrameRaw;
 Mat					frame;
 Mat					GrayImg;
@@ -22,6 +25,8 @@ vector<Point2f>		Projected2DPts;
 Mat					RotationVec;
 Mat					RotationMat;
 Mat					TranslationVec;
+
+float				fx, fy, px, py;
 
 float				fovx;
 float				fovy;
@@ -69,12 +74,14 @@ void Init()
 	RotationMat.create(3, 3, CV_64FC1);
 	TranslationVec.create(3, 1, CV_64FC1);
 
-	frame = imread("CamFrame.bmp", 1);
+//	frame = imread("CamFrame.bmp", 1);
 
 	if (LoadCameraParameters("IntParam_Left.txt"))
 	{
-		float fx = IntParam.at<float>(0, 0);
-		float fy = IntParam.at<float>(1, 1);
+		fx = IntParam.at<float>(0, 0);
+		fy = IntParam.at<float>(1, 1);
+		px = IntParam.at<float>(0, 2);
+		py = IntParam.at<float>(1, 2);
 
 		fovx = 2 * atan(0.5 * 640 / fx) * 180 / 3.1415926;
 		fovy = 2 * atan(0.5 * 480 / fy) * 180 / 3.1415926;
@@ -88,21 +95,26 @@ void Init()
 
 void DispFunc()
 {
+	Mat UndistortImg;
+
 	// clear the window
 	glClear(GL_COLOR_BUFFER_BIT);
 
-	//cap->read(frame);				// capture image
+	cap->read(frame);				// capture image
 	
 	// flip camera frame
 	Mat tempimage;
+	Mat viewMatrix = cv::Mat::zeros(4, 4, CV_64FC1); 
+	Mat ProjectionMatrix = cv::Mat::zeros(4, 4, CV_64FC1);
+	cv::Mat glViewMatrix = cv::Mat::zeros(4, 4, CV_64F);
+	cv::Mat glProjectionMatrix = cv::Mat::zeros(4, 4, CV_64F);
 	
+	undistort(frame,UndistortImg,IntParam,DistParam);
 	cvtColor(frame, GrayImg, CV_RGB2GRAY);
 
 	bool CBFound = findChessboardCorners(GrayImg, Size(5, 7), CB2DPts,
 										 CALIB_CB_ADAPTIVE_THRESH + CALIB_CB_NORMALIZE_IMAGE);
-	drawChessboardCorners(frame, Size(5, 7), Mat(CB2DPts), CBFound);
-
-	
+	drawChessboardCorners(UndistortImg, Size(5, 7), Mat(CB2DPts), CBFound);
 
 	if (CBFound)
 	{
@@ -111,6 +123,7 @@ void DispFunc()
 		solvePnP(CB3DPts, CB2DPts, IntParam, DistParam, RotationVec, TranslationVec);
 		Rodrigues(RotationVec, RotationMat);
 
+		
 		vector<Point3f> CubeA3DPts;
 		vector<Point3f> CubeB3DPts;
 
@@ -150,14 +163,61 @@ void DispFunc()
 
 		DrawCubeCV(frame, CubeAProjected2DPts, CV_RGB(0,255,0));
 		DrawCubeCV(frame, CubeBProjected2DPts, CV_RGB(255,0,0));
+		
+
+		ProjectionMatrix.at<double>(0, 0) = fx/px;
+		ProjectionMatrix.at<double>(1, 1) = fy/py;
+		ProjectionMatrix.at<double>(2, 2) = -(10000 + 40) / (10000 - 40);
+		ProjectionMatrix.at<double>(2, 3) = -2.0 * 10000 * 40 / (10000 - 40);
+		ProjectionMatrix.at<double>(3, 2) = -1;
+		cv::transpose(ProjectionMatrix, glProjectionMatrix);
+
+		for (unsigned int row = 0; row < 4; ++row)
+		{
+			for (unsigned int col = 0; col < 4; ++col)
+			{
+				cout << ProjectionMatrix.at<double>(row, col) << "¡@";
+			}
+			cout << endl;
+		}
+
+		for (unsigned int row = 0; row<3; ++row)
+		{
+			for (unsigned int col = 0; col<3; ++col)
+			{
+				viewMatrix.at<double>(row, col) = RotationMat.at<double>(row, col);
+			}
+			viewMatrix.at<double>(row, 3) = TranslationVec.at<double>(row, 0);
+		}
+		viewMatrix.at<double>(3, 3) = 1.0f;
+
+		cv::Mat cvToGl = cv::Mat::zeros(4, 4, CV_64F); 
+		cvToGl.at<double>(0, 0) = 1.0f; 
+		cvToGl.at<double>(1, 1) = -1.0f; 
+		// Invert the y axis 
+		cvToGl.at<double>(2, 2) = -1.0f; 
+		// invert the z axis 
+		cvToGl.at<double>(3, 3) = 1.0f; 
+		viewMatrix = cvToGl * viewMatrix;
+
+		cv::transpose(viewMatrix, glViewMatrix);
 
 		DispExtParam();
 		SaveExtrinsicParameters("ExtParam_Left.txt");
+
+		for (unsigned int row = 0; row < 4; ++row)
+		{
+			for (unsigned int col = 0; col < 4; ++col)
+			{
+				cout << glViewMatrix.at<double>(row, col) << "¡@";
+			}
+			cout << endl;
+		}
 	}
 	
 	imshow("ImageQQ", frame);
 
-	flip(frame, tempimage, 0);
+	flip(UndistortImg, tempimage, 0);
 	glDrawPixels(tempimage.size().width, tempimage.size().height, GL_BGR_EXT, GL_UNSIGNED_BYTE, tempimage.ptr());
 
 	// set viewport
@@ -165,16 +225,18 @@ void DispFunc()
 
 	// set projection matrix using intrinsic camera params
 	glMatrixMode(GL_PROJECTION);
-	glLoadIdentity();
+	//glLoadIdentity();
+	glLoadMatrixd(&glProjectionMatrix.at<double>(0, 0));
 
 	//gluPerspective is arbitrarily set, you will have to determine these values based
 	//on the intrinsic camera parameters
-	gluPerspective(fovy, aspect, 0.1, 10000);
+	//gluPerspective(fovy, aspect, 40, 10000);
 
 	// you will have to set modelview matrix using extrinsic camera params
 	glMatrixMode(GL_MODELVIEW);
 	glLoadIdentity();
-	gluLookAt(0, 0, 5, 0, 0, 0, 0, 1, 0);
+	glLoadMatrixd(&glViewMatrix.at<double>(0, 0));
+//	gluLookAt(0, 0, 5, 0, 0, 0, 0, 1, 0);
 
 	/////////////////////////////////////////////////////////////////////////////////
 	// Drawing routine
@@ -188,7 +250,8 @@ void DispFunc()
 						   //you want to draw your objects(i.e. chessboard center, chessboard corners)
 //	glutWireTeapot(0.5);
 //	glutSolidSphere(.3, 100, 100);
-	DrawAxes(1.0);
+	glutWireCube(25);
+	DrawAxes(25.0);
 	glPopMatrix();
 	glClear(GL_DEPTH_BUFFER_BIT);
 
@@ -209,15 +272,15 @@ void DrawAxes(float length)
 	glBegin(GL_LINES);
 	glColor3f(1, 0, 0);
 	glVertex3f(0, 0, 0);
-	glVertex3f(length, 0, 0);
+	glVertex3f(length, 0, 0); // X-axis => red
 
 	glColor3f(0, 1, 0);
 	glVertex3f(0, 0, 0);
-	glVertex3f(0, length, 0);
+	glVertex3f(0, length, 0); // Y-axis => green
 
 	glColor3f(0, 0, 1);
 	glVertex3f(0, 0, 0);
-	glVertex3f(0, 0, length);
+	glVertex3f(0, 0, length); // Z-axis => blue
 	glEnd();
 
 	glPopAttrib();

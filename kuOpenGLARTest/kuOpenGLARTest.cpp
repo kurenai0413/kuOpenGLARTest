@@ -74,8 +74,6 @@ void Init()
 	RotationMat.create(3, 3, CV_64FC1);
 	TranslationVec.create(3, 1, CV_64FC1);
 
-//	frame = imread("CamFrame.bmp", 1);
-
 	if (LoadCameraParameters("IntParam_Left.txt"))
 	{
 		fx = IntParam.at<float>(0, 0);
@@ -118,8 +116,6 @@ void DispFunc()
 
 	if (CBFound)
 	{
-		//imwrite("CamFrame.bmp", FrameRaw);
-
 		solvePnP(CB3DPts, CB2DPts, IntParam, DistParam, RotationVec, TranslationVec);
 		Rodrigues(RotationVec, RotationMat);
 
@@ -215,8 +211,6 @@ void DispFunc()
 		}
 	}
 	
-	imshow("ImageQQ", frame);
-
 	flip(UndistortImg, tempimage, 0);
 	glDrawPixels(tempimage.size().width, tempimage.size().height, GL_BGR_EXT, GL_UNSIGNED_BYTE, tempimage.ptr());
 
@@ -292,7 +286,7 @@ void SetCB3DPts()
 	{
 		for (int j = 0; j < 5; j++)
 		{
-			CB3DPts.push_back(Point3f(50 - 25 * j, 25 * i, 0));
+			CB3DPts.push_back(Point3f(-50 + 25 * j, 75 - 25 * i, 0));
 		}
 	}
 }

@@ -41,6 +41,7 @@ bool LoadCameraParameters(char * Filename);
 void SaveExtrinsicParameters(char * Filename);
 void DrawCubeCV(Mat Img, vector<Point2f> CubeVertex, const cv::Scalar &color);
 void DrawAxes(float length);
+void ExtrinsicCVtoGL(Mat RotMat, Mat TransVec, double GLParam[16]);
 //void myKeyboard(unsigned char key, int mouseX, int mouseY);
 //void myReshape(int width, int height);
 
@@ -102,24 +103,24 @@ void DispFunc()
 	
 	// flip camera frame
 	Mat tempimage;
-	Mat viewMatrix = cv::Mat::zeros(4, 4, CV_64FC1); 
-	Mat ProjectionMatrix = cv::Mat::zeros(4, 4, CV_64FC1);
-	cv::Mat glViewMatrix = cv::Mat::zeros(4, 4, CV_64F);
-	cv::Mat glProjectionMatrix = cv::Mat::zeros(4, 4, CV_64F);
+	Mat viewMatrix		   = Mat::zeros(4, 4, CV_64FC1); 
+	Mat ProjectionMatrix   = Mat::zeros(4, 4, CV_64FC1);
+	Mat glViewMatrix	   = Mat::zeros(4, 4, CV_64F);
+	Mat glProjectionMatrix = Mat::zeros(4, 4, CV_64F);
 	
 	undistort(frame,UndistortImg,IntParam,DistParam);
 	cvtColor(frame, GrayImg, CV_RGB2GRAY);
 
 	bool CBFound = findChessboardCorners(GrayImg, Size(5, 7), CB2DPts,
 										 CALIB_CB_ADAPTIVE_THRESH + CALIB_CB_NORMALIZE_IMAGE);
-	drawChessboardCorners(UndistortImg, Size(5, 7), Mat(CB2DPts), CBFound);
+	//drawChessboardCorners(UndistortImg, Size(5, 7), Mat(CB2DPts), CBFound);
 
 	if (CBFound)
 	{
 		solvePnP(CB3DPts, CB2DPts, IntParam, DistParam, RotationVec, TranslationVec);
 		Rodrigues(RotationVec, RotationMat);
 
-		
+		/*
 		vector<Point3f> CubeA3DPts;
 		vector<Point3f> CubeB3DPts;
 
@@ -159,77 +160,56 @@ void DispFunc()
 
 		DrawCubeCV(frame, CubeAProjected2DPts, CV_RGB(0,255,0));
 		DrawCubeCV(frame, CubeBProjected2DPts, CV_RGB(255,0,0));
-		
-
-		ProjectionMatrix.at<double>(0, 0) = fx/px;
-		ProjectionMatrix.at<double>(1, 1) = fy/py;
-		ProjectionMatrix.at<double>(2, 2) = -(10000 + 40) / (10000 - 40);
-		ProjectionMatrix.at<double>(2, 3) = -2.0 * 10000 * 40 / (10000 - 40);
-		ProjectionMatrix.at<double>(3, 2) = -1;
-		cv::transpose(ProjectionMatrix, glProjectionMatrix);
-
-		for (unsigned int row = 0; row < 4; ++row)
-		{
-			for (unsigned int col = 0; col < 4; ++col)
-			{
-				cout << ProjectionMatrix.at<double>(row, col) << "¡@";
-			}
-			cout << endl;
-		}
-
-		for (unsigned int row = 0; row<3; ++row)
-		{
-			for (unsigned int col = 0; col<3; ++col)
-			{
-				viewMatrix.at<double>(row, col) = RotationMat.at<double>(row, col);
-			}
-			viewMatrix.at<double>(row, 3) = TranslationVec.at<double>(row, 0);
-		}
-		viewMatrix.at<double>(3, 3) = 1.0f;
-
-		cv::Mat cvToGl = cv::Mat::zeros(4, 4, CV_64F); 
-		cvToGl.at<double>(0, 0) = 1.0f; 
-		cvToGl.at<double>(1, 1) = -1.0f; 
-		// Invert the y axis 
-		cvToGl.at<double>(2, 2) = -1.0f; 
-		// invert the z axis 
-		cvToGl.at<double>(3, 3) = 1.0f; 
-		viewMatrix = cvToGl * viewMatrix;
-
-		cv::transpose(viewMatrix, glViewMatrix);
+		*/
 
 		DispExtParam();
 		SaveExtrinsicParameters("ExtParam_Left.txt");
-
-		for (unsigned int row = 0; row < 4; ++row)
-		{
-			for (unsigned int col = 0; col < 4; ++col)
-			{
-				cout << glViewMatrix.at<double>(row, col) << "¡@";
-			}
-			cout << endl;
-		}
 	}
 	
 	flip(UndistortImg, tempimage, 0);
-	glDrawPixels(tempimage.size().width, tempimage.size().height, GL_BGR_EXT, GL_UNSIGNED_BYTE, tempimage.ptr());
+	glDrawPixels(tempimage.size().width, tempimage.size().height, 
+				 GL_BGR_EXT, GL_UNSIGNED_BYTE, tempimage.ptr());
 
 	// set viewport
 	glViewport(0, 0, tempimage.size().width, tempimage.size().height);
 
 	// set projection matrix using intrinsic camera params
 	glMatrixMode(GL_PROJECTION);
+	double m[16];
+	m[0] = 2.092804;
+	m[1] = 0.0;
+	m[2] = 0.0;
+	m[3] = 0.0;
+
+	m[4] = 0.0;
+	m[5] = -2.780707;
+	m[6] = 0.0;
+	m[7] = 0.0;
+
+	m[8] = 0.060840;
+	m[9] = -0.051888;
+	m[10] = 1.020202;
+	m[11] = 1.0;
+
+	m[12] = 0.0;
+	m[13] = 0.0;
+	m[14] = -101.010101;
+	m[15] = 0.0;
+	glLoadMatrixd(m);
+
 	//glLoadIdentity();
-	glLoadMatrixd(&glProjectionMatrix.at<double>(0, 0));
+	//glLoadMatrixd(&glProjectionMatrix.at<double>(0, 0));
 
 	//gluPerspective is arbitrarily set, you will have to determine these values based
 	//on the intrinsic camera parameters
 	//gluPerspective(fovy, aspect, 40, 10000);
 
 	// you will have to set modelview matrix using extrinsic camera params
+	double gl_para[16];
 	glMatrixMode(GL_MODELVIEW);
 	glLoadIdentity();
-	glLoadMatrixd(&glViewMatrix.at<double>(0, 0));
+	ExtrinsicCVtoGL(RotationMat, TranslationVec, gl_para);
+	glLoadMatrixd(gl_para);
 //	gluLookAt(0, 0, 5, 0, 0, 0, 0, 1, 0);
 
 	/////////////////////////////////////////////////////////////////////////////////
@@ -239,13 +219,26 @@ void DispFunc()
 	//first, save the current matrix
 	glPushMatrix();
 	//move to the position where you want the 3D object to go
-	glTranslatef(0, 0, 0); //this is an arbitrary position for demonstration
-						   //you will need to adjust your transformations to match the positions where
-						   //you want to draw your objects(i.e. chessboard center, chessboard corners)
 //	glutWireTeapot(0.5);
 //	glutSolidSphere(.3, 100, 100);
-	glutWireCube(25);
-	DrawAxes(25.0);
+//	glutWireCube(25);
+//	DrawAxes(25.0);
+	glColor3f(0, 1, 0);
+	for (int i = 0; i < 2; i++)
+	{
+		for (int j = 0; j < 3; j++)
+		{
+			glPushMatrix();
+			glTranslatef(-37.5f + 50 * i, 62.5f - 50 * j, 12.5f);
+			glutWireCube(25.0);
+			glPopMatrix();
+
+			glPushMatrix();
+			glTranslatef(-12.5f + 50 * i, 37.5f - 50 * j, 12.5f);
+			glutWireCube(25.0);
+			glPopMatrix();
+		}
+	}
 	glPopMatrix();
 	glClear(GL_DEPTH_BUFFER_BIT);
 
@@ -278,6 +271,20 @@ void DrawAxes(float length)
 	glEnd();
 
 	glPopAttrib();
+}
+
+void ExtrinsicCVtoGL(Mat RotMat, Mat TransVec, double GLParam[16])
+{
+	memset(GLParam, 0, 16 * sizeof(double));
+	for (int i = 0; i < 3; i++)
+	{
+		for (int j = 0; j < 3; j++)
+		{
+			GLParam[4 * i + j] = RotMat.at<double>(j, i);
+		}
+		GLParam[12 + i] = TransVec.at<double>(i, 0);
+	}
+	GLParam[15] = 1;
 }
 
 void SetCB3DPts()

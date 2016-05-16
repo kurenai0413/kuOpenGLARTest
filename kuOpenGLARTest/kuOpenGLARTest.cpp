@@ -11,13 +11,15 @@ using namespace std;
 
 #define		ImgWidth	640
 #define		ImgHeight	480
+#define     farClip		50
+#define		nearClip	5000
 
 Mat					FrameRaw;
 Mat					frame;
 Mat					GrayImg;
 VideoCapture	*	cap = NULL;
 
-Mat					IntParam;
+Mat					IntrinsicMat;
 Mat					DistParam;
 vector<Point3f>		CB3DPts;
 vector<Point2f>		CB2DPts;
@@ -26,11 +28,7 @@ Mat					RotationVec;
 Mat					RotationMat;
 Mat					TranslationVec;
 
-float				fx, fy, px, py;
-
-float				fovx;
-float				fovy;
-float				aspect;
+double				m[16];
 
 void Init();
 void DispFunc();
@@ -41,7 +39,8 @@ bool LoadCameraParameters(char * Filename);
 void SaveExtrinsicParameters(char * Filename);
 void DrawCubeCV(Mat Img, vector<Point2f> CubeVertex, const cv::Scalar &color);
 void DrawAxes(float length);
-void ExtrinsicCVtoGL(Mat RotMat, Mat TransVec, double GLParam[16]);
+void IntrinsicCVtoGL(Mat IntParam, double GLProjection[16]);
+void ExtrinsicCVtoGL(Mat RotMat, Mat TransVec, double GLModelView[16]);
 //void myKeyboard(unsigned char key, int mouseX, int mouseY);
 //void myReshape(int width, int height);
 
@@ -67,9 +66,9 @@ void Init()
 	glutCreateWindow("OpenGLQQ");
 
 	// initialize OpenCV video capture
-	cap = new cv::VideoCapture(0);
+	cap = new VideoCapture(0);
 
-	IntParam.create(3, 3, CV_32FC1);
+	IntrinsicMat.create(3, 3, CV_32FC1);
 	DistParam.create(1, 4, CV_32FC1);
 	RotationVec.create(3, 1, CV_64FC1);
 	RotationMat.create(3, 3, CV_64FC1);
@@ -77,14 +76,10 @@ void Init()
 
 	if (LoadCameraParameters("IntParam_Left.txt"))
 	{
-		fx = IntParam.at<float>(0, 0);
-		fy = IntParam.at<float>(1, 1);
-		px = IntParam.at<float>(0, 2);
-		py = IntParam.at<float>(1, 2);
-
-		fovx = 2 * atan(0.5 * 640 / fx) * 180 / 3.1415926;
-		fovy = 2 * atan(0.5 * 480 / fy) * 180 / 3.1415926;
-		aspect = (640 * fy) / (480 * fx);
+		// set projection matrix using intrinsic camera params
+		glMatrixMode(GL_PROJECTION);
+		IntrinsicCVtoGL(IntrinsicMat, m);
+		glLoadMatrixd(m);
 
 		DispParam();
 	}
@@ -100,15 +95,11 @@ void DispFunc()
 	glClear(GL_COLOR_BUFFER_BIT);
 
 	cap->read(frame);				// capture image
-	
+
 	// flip camera frame
 	Mat tempimage;
-	Mat viewMatrix		   = Mat::zeros(4, 4, CV_64FC1); 
-	Mat ProjectionMatrix   = Mat::zeros(4, 4, CV_64FC1);
-	Mat glViewMatrix	   = Mat::zeros(4, 4, CV_64F);
-	Mat glProjectionMatrix = Mat::zeros(4, 4, CV_64F);
-	
-	undistort(frame,UndistortImg,IntParam,DistParam);
+
+	undistort(frame,UndistortImg,IntrinsicMat,DistParam);
 	cvtColor(frame, GrayImg, CV_RGB2GRAY);
 
 	bool CBFound = findChessboardCorners(GrayImg, Size(5, 7), CB2DPts,
@@ -117,7 +108,7 @@ void DispFunc()
 
 	if (CBFound)
 	{
-		solvePnP(CB3DPts, CB2DPts, IntParam, DistParam, RotationVec, TranslationVec);
+		solvePnP(CB3DPts, CB2DPts, IntrinsicMat, DistParam, RotationVec, TranslationVec);
 		Rodrigues(RotationVec, RotationMat);
 
 		/*
@@ -172,37 +163,6 @@ void DispFunc()
 
 	// set viewport
 	glViewport(0, 0, tempimage.size().width, tempimage.size().height);
-
-	// set projection matrix using intrinsic camera params
-	glMatrixMode(GL_PROJECTION);
-	double m[16];
-	m[0] = 2.092804;
-	m[1] = 0.0;
-	m[2] = 0.0;
-	m[3] = 0.0;
-
-	m[4] = 0.0;
-	m[5] = -2.780707;
-	m[6] = 0.0;
-	m[7] = 0.0;
-
-	m[8] = 0.060840;
-	m[9] = -0.051888;
-	m[10] = 1.020202;
-	m[11] = 1.0;
-
-	m[12] = 0.0;
-	m[13] = 0.0;
-	m[14] = -101.010101;
-	m[15] = 0.0;
-	glLoadMatrixd(m);
-
-	//glLoadIdentity();
-	//glLoadMatrixd(&glProjectionMatrix.at<double>(0, 0));
-
-	//gluPerspective is arbitrarily set, you will have to determine these values based
-	//on the intrinsic camera parameters
-	//gluPerspective(fovy, aspect, 40, 10000);
 
 	// you will have to set modelview matrix using extrinsic camera params
 	double gl_para[16];
@@ -273,18 +233,69 @@ void DrawAxes(float length)
 	glPopAttrib();
 }
 
-void ExtrinsicCVtoGL(Mat RotMat, Mat TransVec, double GLParam[16])
+void IntrinsicCVtoGL(Mat IntParam, double GLProjection[16])
 {
-	memset(GLParam, 0, 16 * sizeof(double));
+	int			i, j;
+	double		p[3][3];
+	double		q[4][4];
+
+	memset(GLProjection, 0, 16 * sizeof(double));
+
+	for (i = 0; i < 3; i++)
+	{
+		for (j = 0; j < 3; j++)
+		{
+			p[i][j] = IntParam.at<float>(i, j);
+		}
+	}
+
+	for (i = 0; i < 3; i++)
+	{
+		p[1][i] = (ImgHeight - 1) * p[2][i] - p[1][i];
+	}
+
+	q[0][0] = (2.0 * p[0][0] / (ImgWidth - 1));
+	q[0][1] = (2.0 * p[0][1] / (ImgWidth - 1));
+	q[0][2] = ((2.0 * p[0][2] / (ImgWidth - 1)) - 1.0);
+	q[0][3] = 0.0;
+
+	q[1][0] = 0.0;
+	q[1][1] = (2.0 * p[1][1] / (ImgHeight - 1));
+	q[1][2] = ((2.0 * p[1][2] / (ImgHeight - 1)) - 1.0);
+	q[1][3] = 0.0;
+
+	q[2][0] = 0.0;
+	q[2][1] = 0.0;
+	q[2][2] = (farClip + nearClip) / (farClip - nearClip);
+	q[2][3] = -2.0 * farClip * nearClip / (farClip - nearClip);
+
+	q[3][0] = 0.0;
+	q[3][1] = 0.0;
+	q[3][2] = 1.0;
+	q[3][3] = 0.0;
+
+	// transpose
+	for (i = 0; i < 4; i++)
+	{
+		for (j = 0; j < 4; j++)
+		{
+			GLProjection[4 * i + j] = q[j][i];
+		}
+	}
+}
+
+void ExtrinsicCVtoGL(Mat RotMat, Mat TransVec, double GLModelView[16])
+{
+	memset(GLModelView, 0, 16 * sizeof(double));
 	for (int i = 0; i < 3; i++)
 	{
 		for (int j = 0; j < 3; j++)
 		{
-			GLParam[4 * i + j] = RotMat.at<double>(j, i);
+			GLModelView[4 * i + j] = RotMat.at<double>(j, i);
 		}
-		GLParam[12 + i] = TransVec.at<double>(i, 0);
+		GLModelView[12 + i] = TransVec.at<double>(i, 0);
 	}
-	GLParam[15] = 1;
+	GLModelView[15] = 1;
 }
 
 void SetCB3DPts()
@@ -302,8 +313,8 @@ void DispParam()
 {
 	for (int i = 0; i < 3; i++)
 	{
-		printf("%f %f %f\n", IntParam.at<float>(i, 0), IntParam.at<float>(i, 1),
-							 IntParam.at<float>(i, 2));
+		printf("%f %f %f\n", IntrinsicMat.at<float>(i, 0), IntrinsicMat.at<float>(i, 1),
+							 IntrinsicMat.at<float>(i, 2));
 	}
 	printf("%f %f %f %f\n", DistParam.at<float>(0, 0), DistParam.at<float>(0, 1),
 							DistParam.at<float>(0, 2), DistParam.at<float>(0, 3));
@@ -339,9 +350,9 @@ bool LoadCameraParameters(char * Filename)
 	{
 		for (int i = 0; i < 3; i++)
 		{
-			fscanf_s(fp, "%f %f %f\n", &IntParam.at<float>(i, 0),
-									   &IntParam.at<float>(i, 1),
-									   &IntParam.at<float>(i, 2));
+			fscanf_s(fp, "%f %f %f\n", &IntrinsicMat.at<float>(i, 0),
+									   &IntrinsicMat.at<float>(i, 1),
+									   &IntrinsicMat.at<float>(i, 2));
 		}
 		fscanf_s(fp, "%f %f %f %f\n", &DistParam.at<float>(0, 0),
 									  &DistParam.at<float>(0, 1),

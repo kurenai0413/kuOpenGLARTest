@@ -69,8 +69,8 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <IncludePath>c:\OpenCV310\include;$(IncludePath)</IncludePath>
-    <LibraryPath>c:\OpenCV310\lib;$(LibraryPath)</LibraryPath>
+    <IncludePath>c:\OpenCV310\include;C:\Program Files %28x86%29\MiM\Demo\VC++\Include;$(IncludePath)</IncludePath>
+    <LibraryPath>c:\OpenCV310\lib;C:\Program Files %28x86%29\MiM\SDK;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -113,7 +113,11 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="kuMiMCamera.cpp" />
     <ClCompile Include="kuOpenGLARTest.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="kuMiMCamera.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

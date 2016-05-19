@@ -3,16 +3,22 @@
 #include "gl/glu.h"
 #include "gl/glut.h"
 #include "opencv2/opencv.hpp"
+#include "kuMiMCamera.h"
 
 #pragma comment(lib,"opencv_world310d.lib")
 
 using namespace cv;
 using namespace std;
 
-#define		ImgWidth	640
-#define		ImgHeight	480
+//#define		ImgWidth	640
+//#define		ImgHeight	480
 #define     farClip		50
 #define		nearClip	5000
+
+kuMiMCamera			MiMCam;
+
+int					ImgWidth;
+int					ImgHeight;
 
 Mat					FrameRaw;
 Mat					frame;
@@ -35,8 +41,10 @@ void DispFunc();
 void DispParam();
 void DispExtParam();
 void SetCB3DPts();
-bool LoadCameraParameters(char * Filename);
-void SaveExtrinsicParameters(char * Filename);
+
+bool LoadIntrinsicParam(char * IntrinsicFilename, Mat IntParam, Mat DistParam);
+bool LoadExtrinsicParam(char * ExtrinsicFilename, Mat RotMat, Mat TransVec);
+
 void DrawCubeCV(Mat Img, vector<Point2f> CubeVertex, const cv::Scalar &color);
 void DrawAxes(float length);
 void IntrinsicCVtoGL(Mat IntParam, double GLProjection[16]);
@@ -59,14 +67,14 @@ int main()
 
 void Init()
 {
+	// initialize OpenCV video capture
+	MiMCam.InitialCamera();
+
 	// initialize GLUT
 	glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB);
-	glutInitWindowSize(640, 480);
+	glutInitWindowSize(MiMCam.m_ImageWidth, MiMCam.m_ImageHeight);
 	glutInitWindowPosition(0, 0);
 	glutCreateWindow("OpenGLQQ");
-
-	// initialize OpenCV video capture
-	cap = new VideoCapture(0);
 
 	IntrinsicMat.create(3, 3, CV_32FC1);
 	DistParam.create(1, 4, CV_32FC1);
@@ -74,8 +82,11 @@ void Init()
 	RotationMat.create(3, 3, CV_64FC1);
 	TranslationVec.create(3, 1, CV_64FC1);
 
-	if (LoadCameraParameters("IntParam_Left.txt"))
+	if (LoadIntrinsicParam("IntParam_Left_MiM.txt", IntrinsicMat, DistParam))
 	{
+		ImgWidth = MiMCam.m_ImageWidth;
+		ImgHeight = MiMCam.m_ImageHeight;
+
 		// set projection matrix using intrinsic camera params
 		glMatrixMode(GL_PROJECTION);
 		IntrinsicCVtoGL(IntrinsicMat, m);
@@ -84,93 +95,52 @@ void Init()
 		DispParam();
 	}
 
+	LoadExtrinsicParam("ExtParam_Left_MiM.txt",RotationMat,TranslationVec);
+	DispExtParam();
+
 	SetCB3DPts();
 }
 
 void DispFunc()
 {
+	Mat tempimage;
 	Mat UndistortImg;
 
 	// clear the window
 	glClear(GL_COLOR_BUFFER_BIT);
+	
+	MiMCam.CaptureFrame();				// capture image
 
-	cap->read(frame);				// capture image
-
-	// flip camera frame
-	Mat tempimage;
-
-	undistort(frame,UndistortImg,IntrinsicMat,DistParam);
-	cvtColor(frame, GrayImg, CV_RGB2GRAY);
+	//undistort(frame,UndistortImg,IntrinsicMat,DistParam);
+	cvtColor(MiMCam.m_CamFrame, GrayImg, CV_RGB2GRAY);
 
 	bool CBFound = findChessboardCorners(GrayImg, Size(5, 7), CB2DPts,
 										 CALIB_CB_ADAPTIVE_THRESH + CALIB_CB_NORMALIZE_IMAGE);
-	//drawChessboardCorners(UndistortImg, Size(5, 7), Mat(CB2DPts), CBFound);
+	drawChessboardCorners(MiMCam.m_CamFrame, Size(5, 7), Mat(CB2DPts), CBFound);
 
 	if (CBFound)
 	{
 		solvePnP(CB3DPts, CB2DPts, IntrinsicMat, DistParam, RotationVec, TranslationVec);
 		Rodrigues(RotationVec, RotationMat);
 
-		/*
-		vector<Point3f> CubeA3DPts;
-		vector<Point3f> CubeB3DPts;
-
-		vector<Point2f> CubeAProjected2DPts;
-		vector<Point2f> CubeBProjected2DPts;
-
-
-		CubeA3DPts.resize(8);
-		CubeA3DPts[0] = Point3f(-25, 0, 0);
-		CubeA3DPts[1] = Point3f(0, 0, 0);
-		CubeA3DPts[2] = Point3f(0, 25, 0);
-		CubeA3DPts[3] = Point3f(-25, 25, 0);
-		CubeA3DPts[4] = Point3f(-25, 0, 25);
-		CubeA3DPts[5] = Point3f(0, 0, 25);
-		CubeA3DPts[6] = Point3f(0, 25, 25);
-		CubeA3DPts[7] = Point3f(-25, 25, 25);
-
-		CubeB3DPts.resize(8);
-		CubeB3DPts[0] = Point3f(-50, 0, 0);
-		CubeB3DPts[1] = Point3f(0, 0, 0);
-		CubeB3DPts[2] = Point3f(0, 50, 0);
-		CubeB3DPts[3] = Point3f(-50, 50, 0);
-		CubeB3DPts[4] = Point3f(-50, 0, 50);
-		CubeB3DPts[5] = Point3f(0, 0, 50);
-		CubeB3DPts[6] = Point3f(0, 50, 50);
-		CubeB3DPts[7] = Point3f(-50, 50, 50);
-
-
-		projectPoints(CubeA3DPts,
-					  RotationVec, TranslationVec,
-					  IntParam, DistParam, CubeAProjected2DPts);
-
-		projectPoints(CubeB3DPts,
-					  RotationVec, TranslationVec,
-					  IntParam, DistParam, CubeBProjected2DPts);
-
-
-		DrawCubeCV(frame, CubeAProjected2DPts, CV_RGB(0,255,0));
-		DrawCubeCV(frame, CubeBProjected2DPts, CV_RGB(255,0,0));
-		*/
-
 		DispExtParam();
-		SaveExtrinsicParameters("ExtParam_Left.txt");
 	}
-	
-	flip(UndistortImg, tempimage, 0);
+
+	flip(MiMCam.m_CamFrame, tempimage, 0);
 	glDrawPixels(tempimage.size().width, tempimage.size().height, 
 				 GL_BGR_EXT, GL_UNSIGNED_BYTE, tempimage.ptr());
+
 
 	// set viewport
 	glViewport(0, 0, tempimage.size().width, tempimage.size().height);
 
+	
 	// you will have to set modelview matrix using extrinsic camera params
 	double gl_para[16];
 	glMatrixMode(GL_MODELVIEW);
 	glLoadIdentity();
 	ExtrinsicCVtoGL(RotationMat, TranslationVec, gl_para);
 	glLoadMatrixd(gl_para);
-//	gluLookAt(0, 0, 5, 0, 0, 0, 0, 1, 0);
 
 	/////////////////////////////////////////////////////////////////////////////////
 	// Drawing routine
@@ -179,9 +149,6 @@ void DispFunc()
 	//first, save the current matrix
 	glPushMatrix();
 	//move to the position where you want the 3D object to go
-//	glutWireTeapot(0.5);
-//	glutSolidSphere(.3, 100, 100);
-//	glutWireCube(25);
 //	DrawAxes(25.0);
 	glColor3f(0, 1, 0);
 	for (int i = 0; i < 2; i++)
@@ -201,6 +168,7 @@ void DispFunc()
 	}
 	glPopMatrix();
 	glClear(GL_DEPTH_BUFFER_BIT);
+	
 
 	// show the rendering on the screen
 	glutSwapBuffers();
@@ -316,8 +284,8 @@ void DispParam()
 		printf("%f %f %f\n", IntrinsicMat.at<float>(i, 0), IntrinsicMat.at<float>(i, 1),
 							 IntrinsicMat.at<float>(i, 2));
 	}
-	printf("%f %f %f %f\n", DistParam.at<float>(0, 0), DistParam.at<float>(0, 1),
-							DistParam.at<float>(0, 2), DistParam.at<float>(0, 3));
+	printf("%f %f %f %f\n\n", DistParam.at<float>(0, 0), DistParam.at<float>(0, 1),
+							  DistParam.at<float>(0, 2), DistParam.at<float>(0, 3));
 }
 
 void DispExtParam()
@@ -328,20 +296,18 @@ void DispExtParam()
 			 << RotationMat.at<double>(i, 1) << " "
 			 << RotationMat.at<double>(i, 2) << endl;
 	}
-
-	cout << endl;
 	cout << TranslationVec.at<double>(0, 0) << " "
 		 << TranslationVec.at<double>(1, 0) << " "
 		 << TranslationVec.at<double>(2, 0) << endl;
 	cout << endl;
 }
 
-bool LoadCameraParameters(char * Filename)
+bool LoadIntrinsicParam(char * IntrinsicFilename, Mat IntParam, Mat DistParam)
 {
 	FILE	*	fp;
 	errno_t		err;
 
-	err = fopen_s(&fp, Filename, "r");
+	err = fopen_s(&fp, IntrinsicFilename, "r");
 	if (err != 0)
 	{
 		return false;
@@ -350,9 +316,9 @@ bool LoadCameraParameters(char * Filename)
 	{
 		for (int i = 0; i < 3; i++)
 		{
-			fscanf_s(fp, "%f %f %f\n", &IntrinsicMat.at<float>(i, 0),
-									   &IntrinsicMat.at<float>(i, 1),
-									   &IntrinsicMat.at<float>(i, 2));
+			fscanf_s(fp, "%f %f %f\n", &IntParam.at<float>(i, 0),
+									   &IntParam.at<float>(i, 1),
+									   &IntParam.at<float>(i, 2));
 		}
 		fscanf_s(fp, "%f %f %f %f\n", &DistParam.at<float>(0, 0),
 									  &DistParam.at<float>(0, 1),
@@ -364,20 +330,31 @@ bool LoadCameraParameters(char * Filename)
 	}
 }
 
-void SaveExtrinsicParameters(char * Filename)
+bool LoadExtrinsicParam(char * ExtrinsicFilename, Mat RotMat, Mat TransVec)
 {
-	FILE * fp;
+	FILE	*	fp;
+	errno_t		err;
 
-	errno_t err = fopen_s(&fp, Filename, "w");
-	for (int i = 0; i < 3; i++)
+	err = fopen_s(&fp, ExtrinsicFilename, "r");
+	if (err != 0)
 	{
-		fprintf(fp, "%f %f %f %f\n", RotationMat.at<double>(i, 0),
-									 RotationMat.at<double>(i, 1),
-									 RotationMat.at<double>(i, 2),
-									 TranslationVec.at<double>(i, 0));
+		return false;
 	}
-	fprintf(fp, "0.0 0.0 0.0 1.0");
-	fclose(fp);
+	else
+	{
+		for (int i = 0; i < 3; i++)
+		{
+			fscanf_s(fp, "%lf %lf %lf\n", &RotMat.at<double>(i, 0),
+									   &RotMat.at<double>(i, 1),
+									   &RotMat.at<double>(i, 2));
+		}
+		fscanf_s(fp, "%lf %lf %lf\n", &TransVec.at<double>(0, 0),
+								   &TransVec.at<double>(1, 0),
+								   &TransVec.at<double>(2, 0));
+		fclose(fp);
+
+		return true;
+	}
 }
 
 void DrawCubeCV(Mat Img, vector<Point2f> CubeVertex, const cv::Scalar &color)

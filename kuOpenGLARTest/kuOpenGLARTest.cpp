@@ -142,15 +142,15 @@ void DispFunc()
 
 		projectPoints(CubeA3DPts,
 					  RotationVec, TranslationVec,
-					  IntParam, DistParam, CubeAProjected2DPts);
+					  IntrinsicMat, DistParam, CubeAProjected2DPts);
 
 		projectPoints(CubeB3DPts,
 					  RotationVec, TranslationVec,
-					  IntParam, DistParam, CubeBProjected2DPts);
+					  IntrinsicMat, DistParam, CubeBProjected2DPts);
 
 
-		DrawCubeCV(frame, CubeAProjected2DPts, CV_RGB(0,255,0));
-		DrawCubeCV(frame, CubeBProjected2DPts, CV_RGB(255,0,0));
+		DrawCubeCV(UndistortImg, CubeAProjected2DPts, CV_RGB(0,255,0));
+		DrawCubeCV(UndistortImg, CubeBProjected2DPts, CV_RGB(255,0,0));
 		*/
 
 		DispExtParam();
@@ -172,6 +172,20 @@ void DispFunc()
 	glLoadMatrixd(gl_para);
 //	gluLookAt(0, 0, 5, 0, 0, 0, 0, 1, 0);
 
+	FILE * fp;
+	errno_t err = fopen_s(&fp, "GLParam.txt", "w");
+	fprintf(fp, "m:\n");
+	for (int i = 0; i < 4; i++)
+	{
+		fprintf(fp, "%f %f %f %f\n", m[4 * i], m[4 * i + 1], m[4 * i + 2], m[4 * i + 3]);
+	}
+	fprintf(fp, "\ngl_para:\n");
+	for (int i = 0; i < 4; i++)
+	{
+		fprintf(fp, "%f %f %f %f\n", gl_para[4 * i], gl_para[4 * i + 1], gl_para[4 * i + 2], gl_para[4 * i + 3]);
+	}
+	fclose(fp);
+
 	/////////////////////////////////////////////////////////////////////////////////
 	// Drawing routine
 
@@ -183,22 +197,40 @@ void DispFunc()
 //	glutSolidSphere(.3, 100, 100);
 //	glutWireCube(25);
 //	DrawAxes(25.0);
-	glColor3f(0, 1, 0);
-	for (int i = 0; i < 2; i++)
-	{
-		for (int j = 0; j < 3; j++)
-		{
-			glPushMatrix();
-			glTranslatef(-37.5f + 50 * i, 62.5f - 50 * j, 12.5f);
-			glutWireCube(25.0);
-			glPopMatrix();
+	//glColor3f(0, 1, 0);
+	//for (int i = 0; i < 2; i++)
+	//{
+	//	for (int j = 0; j < 3; j++)
+	//	{
+	//		glPushMatrix();
+	//		glTranslatef(-37.5f + 50 * i, 62.5f - 50 * j, 12.5f);
+	//		glutWireCube(25.0);
+	//		glPopMatrix();
+	//		glPushMatrix();
+	//		glTranslatef(-12.5f + 50 * i, 37.5f - 50 * j, 12.5f);
+	//		glutWireCube(25.0);
+	//		glPopMatrix();
+	//	}
+	//}
 
-			glPushMatrix();
-			glTranslatef(-12.5f + 50 * i, 37.5f - 50 * j, 12.5f);
-			glutWireCube(25.0);
-			glPopMatrix();
-		}
-	}
+	glBegin(GL_LINES);
+	glColor3f(0, 1, 0);
+	glVertex3f(0,0,0);
+	glVertex3f(43,0,0);
+
+	glVertex3f(0, 0, 0);
+	glVertex3f(0, 43, 0);
+
+	glVertex3f(0, 0, 0);
+	glVertex3f(0, 0, 63);
+
+	glVertex3f(43, 0, 0);
+	glVertex3f(43, 0, 63);
+
+	glVertex3f(0, 0, 63);
+	glVertex3f(43, 0, 63);
+	glEnd();
+
 	glPopMatrix();
 	glClear(GL_DEPTH_BUFFER_BIT);
 

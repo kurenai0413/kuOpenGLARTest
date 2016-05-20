@@ -9,15 +9,17 @@
 using namespace cv;
 using namespace std;
 
-#define		Left		0
-#define		Right		1
+#define		Left		1
+#define		Right		0
 #define		ImgWidth	640
 #define		ImgHeight	480
 #define     farClip		50
 #define		nearClip	5000
+#define		cbSize		30
 
-Mat					LCamFrame;
-Mat					RCamFrame;
+Mat					CamFrame[2];
+Mat					UndistortedFrame[2];
+Mat					StereoFrame;
 
 Mat					GrayImg;
 VideoCapture	*	cap[2];
@@ -31,19 +33,23 @@ Mat					RotationVec[2];
 Mat					RotationMat[2];
 Mat					TranslationVec[2];
 
-double				m_left[16];
+double				m[2][16];
 double				m_right[16];
 
 void Init();
 void DispFunc();
-//void DispParam();
+void DispIntrinsicParam(int side);
 //void DispExtParam();
-void SetCB3DPts();
-bool LoadCameraParameters(char * Filename, int side);
+void SetCB3DPts(int CBSize);
+bool LoadIntrinsicParam(char * Filename, int side);
 //void SaveExtrinsicParameters(char * Filename);
 void DrawAxes(float length);
 void IntrinsicCVtoGL(Mat IntParam, double GLProjection[16]);
 void ExtrinsicCVtoGL(Mat RotMat, Mat TransVec, double GLModelView[16]);
+void DrawStereoFrame(Mat Frame[2]);
+bool FindExtrinsicParam(int side);
+void RenderWireCubes(int CBSize);
+
 //void myKeyboard(unsigned char key, int mouseX, int mouseY);
 //void myReshape(int width, int height);
 
@@ -62,16 +68,21 @@ int main()
 
 void Init()
 {
+	int			i;
+
 	// initialize GLUT
 	glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB);
-	glutInitWindowSize(ImgWidth, ImgHeight);
+	glutInitWindowSize(2*ImgWidth, ImgHeight);
 	glutInitWindowPosition(0, 0);
 	glutCreateWindow("OpenGLQQ");
 
 	// initialize OpenCV video capture
-	cap[Left] = new VideoCapture(0);
+	cap[Left]  = new VideoCapture(0);
+	cap[Right] = new VideoCapture(1);
 
-	for (int i = 0; i < 2; i++)
+	StereoFrame.create(ImgHeight, 2 * ImgWidth, CV_8UC3);
+
+	for (i = 0; i < 2; i++)
 	{
 		IntrinsicMat[i].create(3, 3, CV_32FC1);
 		DistParam[i].create(1, 4, CV_32FC1);
@@ -79,39 +90,44 @@ void Init()
 		RotationMat[i].create(3, 3, CV_64FC1);
 		TranslationVec[i].create(3, 1, CV_64FC1);
 	}
+
+	LoadIntrinsicParam("IntParam_Left.txt", Left);
+	LoadIntrinsicParam("IntParam_Right.txt", Right);
 	
-	if (LoadCameraParameters("IntParam_Left.txt", Left))
-	{
-		// set projection matrix using intrinsic camera params
-		glMatrixMode(GL_PROJECTION);
-		IntrinsicCVtoGL(IntrinsicMat[Left], m_left);
-		glLoadMatrixd(m_left);
+	for (i = 0; i < 2;i++)
+		DispIntrinsicParam(i);
 
-		//DispParam();
-	}
-
-	SetCB3DPts();
+	SetCB3DPts(cbSize);
 }
 
 void DispFunc()
 {
-	Mat UndistortImg;
+	int		i;
 
 	// clear the window
 	glClear(GL_COLOR_BUFFER_BIT);
 
-	cap[0]->read(LCamFrame);				// capture image
+	for (i = 0; i < 2; i++)
+	{
+		cap[i]->read(CamFrame[i]);				// capture image
+		undistort(CamFrame[i], UndistortedFrame[i], IntrinsicMat[i], DistParam[i]);
+	}
+	DrawStereoFrame(CamFrame);
 
-	// flip camera frame
-	Mat tempimage;
+	cvtColor(CamFrame[Left], GrayImg, CV_RGB2GRAY);
 
-	undistort(LCamFrame,UndistortImg,IntrinsicMat[Left],DistParam[Left]);
-	cvtColor(LCamFrame, GrayImg, CV_RGB2GRAY);
+	//bool CBFound = findChessboardCorners(GrayImg, Size(5, 7), CB2DPts[Left],
+	//									 CALIB_CB_ADAPTIVE_THRESH + CALIB_CB_NORMALIZE_IMAGE);
+	//drawChessboardCorners(UndistortImg, Size(5, 7), Mat(CB2DPts[Left]), CBFound);
 
-	bool CBFound = findChessboardCorners(GrayImg, Size(5, 7), CB2DPts[Left],
-										 CALIB_CB_ADAPTIVE_THRESH + CALIB_CB_NORMALIZE_IMAGE);
-	//drawChessboardCorners(UndistortImg, Size(5, 7), Mat(CB2DPts), CBFound);
+	// set viewport
+	glViewport(0, 0, ImgWidth, ImgHeight);
 
+	glMatrixMode(GL_PROJECTION);
+	IntrinsicCVtoGL(IntrinsicMat[Left], m[0]);
+	glLoadMatrixd(m[0]);
+	
+	/*
 	if (CBFound)
 	{
 		solvePnP(CB3DPts, CB2DPts[Left], 
@@ -121,65 +137,24 @@ void DispFunc()
 
 		//DispExtParam();
 		//SaveExtrinsicParameters("ExtParam_Left.txt");
+
+		// you will have to set modelview matrix using extrinsic camera params
+		double gl_para[16];
+		glMatrixMode(GL_MODELVIEW);
+		glLoadIdentity();
+		ExtrinsicCVtoGL(RotationMat[Left], TranslationVec[Left], gl_para);
+		glLoadMatrixd(gl_para);
+
+		//now that the camera params have been set, draw your 3D shapes
+		//first, save the current matrix
+		glPushMatrix();
+		
+		RenderWireCubes(cbSize);
+		DrawAxes(cbSize);
+
+		glPopMatrix();
 	}
-	
-	flip(UndistortImg, tempimage, 0);
-	glDrawPixels(ImgWidth, ImgHeight,
-				 GL_BGR_EXT, GL_UNSIGNED_BYTE, tempimage.ptr());
-
-	// set viewport
-	glViewport(0, 0, ImgWidth, ImgHeight);
-
-	// you will have to set modelview matrix using extrinsic camera params
-	double gl_para[16];
-	glMatrixMode(GL_MODELVIEW);
-	glLoadIdentity();
-	ExtrinsicCVtoGL(RotationMat[Left], TranslationVec[Left], gl_para);
-	glLoadMatrixd(gl_para);
-//	gluLookAt(0, 0, 5, 0, 0, 0, 0, 1, 0);
-
-	//FILE * fp;
-	//errno_t err = fopen_s(&fp, "GLParam.txt", "w");
-	//fprintf(fp, "m:\n");
-	//for (int i = 0; i < 4; i++)
-	//{
-	//	fprintf(fp, "%f %f %f %f\n", m[4 * i], m[4 * i + 1], m[4 * i + 2], m[4 * i + 3]);
-	//}
-	//fprintf(fp, "\ngl_para:\n");
-	//for (int i = 0; i < 4; i++)
-	//{
-	//	fprintf(fp, "%f %f %f %f\n", gl_para[4 * i], gl_para[4 * i + 1], gl_para[4 * i + 2], gl_para[4 * i + 3]);
-	//}
-	//fclose(fp);
-
-	/////////////////////////////////////////////////////////////////////////////////
-	// Drawing routine
-
-	//now that the camera params have been set, draw your 3D shapes
-	//first, save the current matrix
-	glPushMatrix();
-	//move to the position where you want the 3D object to go
-//	glutWireTeapot(0.5);
-//	glutSolidSphere(.3, 100, 100);
-//	glutWireCube(25);
-//	DrawAxes(25.0);
-	glColor3f(0, 1, 0);
-	for (int i = 0; i < 2; i++)
-	{
-		for (int j = 0; j < 3; j++)
-		{
-			glPushMatrix();
-			glTranslatef(-37.5f + 50 * i, 62.5f - 50 * j, 12.5f);
-			glutWireCube(25.0);
-			glPopMatrix();
-			glPushMatrix();
-			glTranslatef(-12.5f + 50 * i, 37.5f - 50 * j, 12.5f);
-			glutWireCube(25.0);
-			glPopMatrix();
-		}
-	}
-
-	glPopMatrix();
+	*/
 	glClear(GL_DEPTH_BUFFER_BIT);
 
 	// show the rendering on the screen
@@ -278,27 +253,77 @@ void ExtrinsicCVtoGL(Mat RotMat, Mat TransVec, double GLModelView[16])
 	GLModelView[15] = 1;
 }
 
-void SetCB3DPts()
+void DrawStereoFrame(Mat Frame[2])
+{
+	int					i;
+	Mat					GLFlipedFrame;			// Fliped camera frame for GL display 
+
+	for (i = 0; i < 2; i++)
+	{
+		flip(Frame[i], GLFlipedFrame, 0);
+		GLFlipedFrame.copyTo(StereoFrame(Rect(ImgWidth*i, 0, ImgWidth, ImgHeight)));
+	}
+
+	glDrawPixels(2 * ImgWidth, ImgHeight,
+				 GL_BGR_EXT, GL_UNSIGNED_BYTE, StereoFrame.ptr());
+}
+
+bool FindExtrinsicParam(int side)
+{
+	return false;
+}
+
+void RenderWireCubes(int CBSize)
+{
+	glColor3f(0, 1, 0);
+	for (int i = 0; i < 2; i++)
+	{
+		for (int j = 0; j < 3; j++)
+		{
+			glPushMatrix();
+			glTranslatef(-1.5*CBSize + 2 * CBSize * i, 62.5f - 2 * CBSize * j, 0.5*CBSize);
+			glutWireCube(CBSize);
+			glPopMatrix();
+			glPushMatrix();
+			glTranslatef(-0.5*CBSize + 2 * CBSize * i, 1.5*CBSize - 2 * CBSize * j, 0.5*CBSize);
+			glutWireCube(CBSize);
+			glPopMatrix();
+		}
+	}
+}
+
+void SetCB3DPts(int CBSize)
 {
 	for (int i = 0; i < 7; i++)
 	{
 		for (int j = 0; j < 5; j++)
 		{
-			CB3DPts.push_back(Point3f(-50 + 25 * j, 75 - 25 * i, 0));
+			CB3DPts.push_back(Point3f(-2 * CBSize + CBSize * j, 3* CBSize - CBSize * i, 0));
 		}
 	}
 }
 
-//void DispParam()
-//{
-//	for (int i = 0; i < 3; i++)
-//	{
-//		printf("%f %f %f\n", IntrinsicMat.at<float>(i, 0), IntrinsicMat.at<float>(i, 1),
-//							 IntrinsicMat.at<float>(i, 2));
-//	}
-//	printf("%f %f %f %f\n", DistParam.at<float>(0, 0), DistParam.at<float>(0, 1),
-//							DistParam.at<float>(0, 2), DistParam.at<float>(0, 3));
-//}
+void DispIntrinsicParam(int side)
+{
+	char CamSideDescription[80];
+	switch (side)
+	{
+		case Left:
+			sprintf_s(CamSideDescription, "Left Intrinsic Parameters:");
+			break;
+		case Right:
+			sprintf_s(CamSideDescription, "Right Intrinsic Parameters:");
+			break;
+	}
+	cout << CamSideDescription << endl;
+	for (int i = 0; i < 3; i++)
+	{
+		cout << IntrinsicMat[side].at<float>(i, 0) << " " << IntrinsicMat[side].at<float>(i, 1) << " "
+			 << IntrinsicMat[side].at<float>(i, 2) << endl;
+	}
+	cout << DistParam[side].at<float>(0, 0) << " " << DistParam[side].at<float>(0, 1) << " "
+		 << DistParam[side].at<float>(0, 2) << " " << DistParam[side].at<float>(0, 3) << endl << endl;
+}
 
 //void DispExtParam()
 //{
@@ -316,7 +341,7 @@ void SetCB3DPts()
 //	cout << endl;
 //}
 
-bool LoadCameraParameters(char * Filename, int side)
+bool LoadIntrinsicParam(char * Filename, int side)
 {
 	FILE	*	fp;
 	errno_t		err;

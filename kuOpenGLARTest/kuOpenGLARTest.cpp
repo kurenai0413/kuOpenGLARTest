@@ -37,7 +37,6 @@ void DispExtParam();
 void SetCB3DPts();
 bool LoadCameraParameters(char * Filename);
 void SaveExtrinsicParameters(char * Filename);
-void DrawCubeCV(Mat Img, vector<Point2f> CubeVertex, const cv::Scalar &color);
 void DrawAxes(float length);
 void IntrinsicCVtoGL(Mat IntParam, double GLProjection[16]);
 void ExtrinsicCVtoGL(Mat RotMat, Mat TransVec, double GLModelView[16]);
@@ -61,7 +60,7 @@ void Init()
 {
 	// initialize GLUT
 	glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB);
-	glutInitWindowSize(640, 480);
+	glutInitWindowSize(ImgWidth, ImgHeight);
 	glutInitWindowPosition(0, 0);
 	glutCreateWindow("OpenGLQQ");
 
@@ -111,58 +110,16 @@ void DispFunc()
 		solvePnP(CB3DPts, CB2DPts, IntrinsicMat, DistParam, RotationVec, TranslationVec);
 		Rodrigues(RotationVec, RotationMat);
 
-		/*
-		vector<Point3f> CubeA3DPts;
-		vector<Point3f> CubeB3DPts;
-
-		vector<Point2f> CubeAProjected2DPts;
-		vector<Point2f> CubeBProjected2DPts;
-
-
-		CubeA3DPts.resize(8);
-		CubeA3DPts[0] = Point3f(-25, 0, 0);
-		CubeA3DPts[1] = Point3f(0, 0, 0);
-		CubeA3DPts[2] = Point3f(0, 25, 0);
-		CubeA3DPts[3] = Point3f(-25, 25, 0);
-		CubeA3DPts[4] = Point3f(-25, 0, 25);
-		CubeA3DPts[5] = Point3f(0, 0, 25);
-		CubeA3DPts[6] = Point3f(0, 25, 25);
-		CubeA3DPts[7] = Point3f(-25, 25, 25);
-
-		CubeB3DPts.resize(8);
-		CubeB3DPts[0] = Point3f(-50, 0, 0);
-		CubeB3DPts[1] = Point3f(0, 0, 0);
-		CubeB3DPts[2] = Point3f(0, 50, 0);
-		CubeB3DPts[3] = Point3f(-50, 50, 0);
-		CubeB3DPts[4] = Point3f(-50, 0, 50);
-		CubeB3DPts[5] = Point3f(0, 0, 50);
-		CubeB3DPts[6] = Point3f(0, 50, 50);
-		CubeB3DPts[7] = Point3f(-50, 50, 50);
-
-
-		projectPoints(CubeA3DPts,
-					  RotationVec, TranslationVec,
-					  IntrinsicMat, DistParam, CubeAProjected2DPts);
-
-		projectPoints(CubeB3DPts,
-					  RotationVec, TranslationVec,
-					  IntrinsicMat, DistParam, CubeBProjected2DPts);
-
-
-		DrawCubeCV(UndistortImg, CubeAProjected2DPts, CV_RGB(0,255,0));
-		DrawCubeCV(UndistortImg, CubeBProjected2DPts, CV_RGB(255,0,0));
-		*/
-
-		DispExtParam();
-		SaveExtrinsicParameters("ExtParam_Left.txt");
+		//DispExtParam();
+		//SaveExtrinsicParameters("ExtParam_Left.txt");
 	}
 	
 	flip(UndistortImg, tempimage, 0);
-	glDrawPixels(tempimage.size().width, tempimage.size().height, 
+	glDrawPixels(ImgWidth, ImgHeight,
 				 GL_BGR_EXT, GL_UNSIGNED_BYTE, tempimage.ptr());
 
 	// set viewport
-	glViewport(0, 0, tempimage.size().width, tempimage.size().height);
+	glViewport(0, 0, ImgWidth, ImgHeight);
 
 	// you will have to set modelview matrix using extrinsic camera params
 	double gl_para[16];
@@ -197,39 +154,21 @@ void DispFunc()
 //	glutSolidSphere(.3, 100, 100);
 //	glutWireCube(25);
 //	DrawAxes(25.0);
-	//glColor3f(0, 1, 0);
-	//for (int i = 0; i < 2; i++)
-	//{
-	//	for (int j = 0; j < 3; j++)
-	//	{
-	//		glPushMatrix();
-	//		glTranslatef(-37.5f + 50 * i, 62.5f - 50 * j, 12.5f);
-	//		glutWireCube(25.0);
-	//		glPopMatrix();
-	//		glPushMatrix();
-	//		glTranslatef(-12.5f + 50 * i, 37.5f - 50 * j, 12.5f);
-	//		glutWireCube(25.0);
-	//		glPopMatrix();
-	//	}
-	//}
-
-	glBegin(GL_LINES);
 	glColor3f(0, 1, 0);
-	glVertex3f(0,0,0);
-	glVertex3f(43,0,0);
-
-	glVertex3f(0, 0, 0);
-	glVertex3f(0, 43, 0);
-
-	glVertex3f(0, 0, 0);
-	glVertex3f(0, 0, 63);
-
-	glVertex3f(43, 0, 0);
-	glVertex3f(43, 0, 63);
-
-	glVertex3f(0, 0, 63);
-	glVertex3f(43, 0, 63);
-	glEnd();
+	for (int i = 0; i < 2; i++)
+	{
+		for (int j = 0; j < 3; j++)
+		{
+			glPushMatrix();
+			glTranslatef(-37.5f + 50 * i, 62.5f - 50 * j, 12.5f);
+			glutWireCube(25.0);
+			glPopMatrix();
+			glPushMatrix();
+			glTranslatef(-12.5f + 50 * i, 37.5f - 50 * j, 12.5f);
+			glutWireCube(25.0);
+			glPopMatrix();
+		}
+	}
 
 	glPopMatrix();
 	glClear(GL_DEPTH_BUFFER_BIT);
@@ -410,29 +349,6 @@ void SaveExtrinsicParameters(char * Filename)
 	}
 	fprintf(fp, "0.0 0.0 0.0 1.0");
 	fclose(fp);
-}
-
-void DrawCubeCV(Mat Img, vector<Point2f> CubeVertex, const cv::Scalar &color)
-{
-	for (int i = 0; i < 8; i++)
-	{
-		circle(Img, CubeVertex[i], 1, color, 5, CV_AA);
-	}
-
-	line(Img, CubeVertex[0], CubeVertex[1], color, 1, CV_AA);
-	line(Img, CubeVertex[1], CubeVertex[2], color, 1, CV_AA);
-	line(Img, CubeVertex[2], CubeVertex[3], color, 1, CV_AA);
-	line(Img, CubeVertex[3], CubeVertex[0], color, 1, CV_AA);
-
-	line(Img, CubeVertex[4], CubeVertex[5], color, 1, CV_AA);
-	line(Img, CubeVertex[5], CubeVertex[6], color, 1, CV_AA);
-	line(Img, CubeVertex[6], CubeVertex[7], color, 1, CV_AA);
-	line(Img, CubeVertex[7], CubeVertex[4], color, 1, CV_AA);
-
-	line(Img, CubeVertex[0], CubeVertex[4], color, 1, CV_AA);
-	line(Img, CubeVertex[1], CubeVertex[5], color, 1, CV_AA);
-	line(Img, CubeVertex[2], CubeVertex[6], color, 1, CV_AA);
-	line(Img, CubeVertex[3], CubeVertex[7], color, 1, CV_AA);
 }
 
 //void myKeyboard(unsigned char key, int mouseX, int mouseY)

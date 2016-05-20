@@ -9,8 +9,8 @@
 using namespace cv;
 using namespace std;
 
-#define		Left		1
-#define		Right		0
+#define		Left		0
+#define		Right		1
 #define		ImgWidth	640
 #define		ImgHeight	480
 #define     farClip		50
@@ -112,13 +112,14 @@ void DispFunc()
 		cap[i]->read(CamFrame[i]);				// capture image
 		undistort(CamFrame[i], UndistortedFrame[i], IntrinsicMat[i], DistParam[i]);
 	}
-	DrawStereoFrame(CamFrame);
 
-	cvtColor(CamFrame[Left], GrayImg, CV_RGB2GRAY);
+	cvtColor(UndistortedFrame[Left], GrayImg, CV_RGB2GRAY);
 
-	//bool CBFound = findChessboardCorners(GrayImg, Size(5, 7), CB2DPts[Left],
-	//									 CALIB_CB_ADAPTIVE_THRESH + CALIB_CB_NORMALIZE_IMAGE);
-	//drawChessboardCorners(UndistortImg, Size(5, 7), Mat(CB2DPts[Left]), CBFound);
+	bool CBFound = findChessboardCorners(GrayImg, Size(5, 7), CB2DPts[Left],
+										 CALIB_CB_ADAPTIVE_THRESH + CALIB_CB_NORMALIZE_IMAGE);
+	drawChessboardCorners(UndistortedFrame[Left], Size(5, 7), Mat(CB2DPts[Left]), CBFound);
+
+	DrawStereoFrame(UndistortedFrame);
 
 	// set viewport
 	glViewport(0, 0, ImgWidth, ImgHeight);
@@ -127,7 +128,6 @@ void DispFunc()
 	IntrinsicCVtoGL(IntrinsicMat[Left], m[0]);
 	glLoadMatrixd(m[0]);
 	
-	/*
 	if (CBFound)
 	{
 		solvePnP(CB3DPts, CB2DPts[Left], 
@@ -154,7 +154,7 @@ void DispFunc()
 
 		glPopMatrix();
 	}
-	*/
+	
 	glClear(GL_DEPTH_BUFFER_BIT);
 
 	// show the rendering on the screen
@@ -281,7 +281,7 @@ void RenderWireCubes(int CBSize)
 		for (int j = 0; j < 3; j++)
 		{
 			glPushMatrix();
-			glTranslatef(-1.5*CBSize + 2 * CBSize * i, 62.5f - 2 * CBSize * j, 0.5*CBSize);
+			glTranslatef(-1.5*CBSize + 2 * CBSize * i, 2.5*CBSize - 2 * CBSize * j, 0.5*CBSize);
 			glutWireCube(CBSize);
 			glPopMatrix();
 			glPushMatrix();

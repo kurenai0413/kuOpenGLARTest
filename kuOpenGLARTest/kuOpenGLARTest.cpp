@@ -9,34 +9,38 @@
 using namespace cv;
 using namespace std;
 
+#define		Left		0
+#define		Right		1
 #define		ImgWidth	640
 #define		ImgHeight	480
 #define     farClip		50
 #define		nearClip	5000
 
-Mat					FrameRaw;
-Mat					frame;
+Mat					LCamFrame;
+Mat					RCamFrame;
+
 Mat					GrayImg;
-VideoCapture	*	cap = NULL;
+VideoCapture	*	cap[2];
 
-Mat					IntrinsicMat;
-Mat					DistParam;
+Mat					IntrinsicMat[2];
+Mat					DistParam[2];
 vector<Point3f>		CB3DPts;
-vector<Point2f>		CB2DPts;
-vector<Point2f>		Projected2DPts;
-Mat					RotationVec;
-Mat					RotationMat;
-Mat					TranslationVec;
+vector<Point2f>		CB2DPts[2];
+vector<Point2f>		Projected2DPts[2];
+Mat					RotationVec[2];
+Mat					RotationMat[2];
+Mat					TranslationVec[2];
 
-double				m[16];
+double				m_left[16];
+double				m_right[16];
 
 void Init();
 void DispFunc();
-void DispParam();
-void DispExtParam();
+//void DispParam();
+//void DispExtParam();
 void SetCB3DPts();
-bool LoadCameraParameters(char * Filename);
-void SaveExtrinsicParameters(char * Filename);
+bool LoadCameraParameters(char * Filename, int side);
+//void SaveExtrinsicParameters(char * Filename);
 void DrawAxes(float length);
 void IntrinsicCVtoGL(Mat IntParam, double GLProjection[16]);
 void ExtrinsicCVtoGL(Mat RotMat, Mat TransVec, double GLModelView[16]);
@@ -65,22 +69,25 @@ void Init()
 	glutCreateWindow("OpenGLQQ");
 
 	// initialize OpenCV video capture
-	cap = new VideoCapture(0);
+	cap[Left] = new VideoCapture(0);
 
-	IntrinsicMat.create(3, 3, CV_32FC1);
-	DistParam.create(1, 4, CV_32FC1);
-	RotationVec.create(3, 1, CV_64FC1);
-	RotationMat.create(3, 3, CV_64FC1);
-	TranslationVec.create(3, 1, CV_64FC1);
-
-	if (LoadCameraParameters("IntParam_Left.txt"))
+	for (int i = 0; i < 2; i++)
+	{
+		IntrinsicMat[i].create(3, 3, CV_32FC1);
+		DistParam[i].create(1, 4, CV_32FC1);
+		RotationVec[i].create(3, 1, CV_64FC1);
+		RotationMat[i].create(3, 3, CV_64FC1);
+		TranslationVec[i].create(3, 1, CV_64FC1);
+	}
+	
+	if (LoadCameraParameters("IntParam_Left.txt", Left))
 	{
 		// set projection matrix using intrinsic camera params
 		glMatrixMode(GL_PROJECTION);
-		IntrinsicCVtoGL(IntrinsicMat, m);
-		glLoadMatrixd(m);
+		IntrinsicCVtoGL(IntrinsicMat[Left], m_left);
+		glLoadMatrixd(m_left);
 
-		DispParam();
+		//DispParam();
 	}
 
 	SetCB3DPts();
@@ -93,22 +100,24 @@ void DispFunc()
 	// clear the window
 	glClear(GL_COLOR_BUFFER_BIT);
 
-	cap->read(frame);				// capture image
+	cap[0]->read(LCamFrame);				// capture image
 
 	// flip camera frame
 	Mat tempimage;
 
-	undistort(frame,UndistortImg,IntrinsicMat,DistParam);
-	cvtColor(frame, GrayImg, CV_RGB2GRAY);
+	undistort(LCamFrame,UndistortImg,IntrinsicMat[Left],DistParam[Left]);
+	cvtColor(LCamFrame, GrayImg, CV_RGB2GRAY);
 
-	bool CBFound = findChessboardCorners(GrayImg, Size(5, 7), CB2DPts,
+	bool CBFound = findChessboardCorners(GrayImg, Size(5, 7), CB2DPts[Left],
 										 CALIB_CB_ADAPTIVE_THRESH + CALIB_CB_NORMALIZE_IMAGE);
 	//drawChessboardCorners(UndistortImg, Size(5, 7), Mat(CB2DPts), CBFound);
 
 	if (CBFound)
 	{
-		solvePnP(CB3DPts, CB2DPts, IntrinsicMat, DistParam, RotationVec, TranslationVec);
-		Rodrigues(RotationVec, RotationMat);
+		solvePnP(CB3DPts, CB2DPts[Left], 
+				 IntrinsicMat[Left], DistParam[Left], 
+				 RotationVec[Left], TranslationVec[Left]);
+		Rodrigues(RotationVec[Left], RotationMat[Left]);
 
 		//DispExtParam();
 		//SaveExtrinsicParameters("ExtParam_Left.txt");
@@ -125,23 +134,23 @@ void DispFunc()
 	double gl_para[16];
 	glMatrixMode(GL_MODELVIEW);
 	glLoadIdentity();
-	ExtrinsicCVtoGL(RotationMat, TranslationVec, gl_para);
+	ExtrinsicCVtoGL(RotationMat[Left], TranslationVec[Left], gl_para);
 	glLoadMatrixd(gl_para);
 //	gluLookAt(0, 0, 5, 0, 0, 0, 0, 1, 0);
 
-	FILE * fp;
-	errno_t err = fopen_s(&fp, "GLParam.txt", "w");
-	fprintf(fp, "m:\n");
-	for (int i = 0; i < 4; i++)
-	{
-		fprintf(fp, "%f %f %f %f\n", m[4 * i], m[4 * i + 1], m[4 * i + 2], m[4 * i + 3]);
-	}
-	fprintf(fp, "\ngl_para:\n");
-	for (int i = 0; i < 4; i++)
-	{
-		fprintf(fp, "%f %f %f %f\n", gl_para[4 * i], gl_para[4 * i + 1], gl_para[4 * i + 2], gl_para[4 * i + 3]);
-	}
-	fclose(fp);
+	//FILE * fp;
+	//errno_t err = fopen_s(&fp, "GLParam.txt", "w");
+	//fprintf(fp, "m:\n");
+	//for (int i = 0; i < 4; i++)
+	//{
+	//	fprintf(fp, "%f %f %f %f\n", m[4 * i], m[4 * i + 1], m[4 * i + 2], m[4 * i + 3]);
+	//}
+	//fprintf(fp, "\ngl_para:\n");
+	//for (int i = 0; i < 4; i++)
+	//{
+	//	fprintf(fp, "%f %f %f %f\n", gl_para[4 * i], gl_para[4 * i + 1], gl_para[4 * i + 2], gl_para[4 * i + 3]);
+	//}
+	//fclose(fp);
 
 	/////////////////////////////////////////////////////////////////////////////////
 	// Drawing routine
@@ -280,34 +289,34 @@ void SetCB3DPts()
 	}
 }
 
-void DispParam()
-{
-	for (int i = 0; i < 3; i++)
-	{
-		printf("%f %f %f\n", IntrinsicMat.at<float>(i, 0), IntrinsicMat.at<float>(i, 1),
-							 IntrinsicMat.at<float>(i, 2));
-	}
-	printf("%f %f %f %f\n", DistParam.at<float>(0, 0), DistParam.at<float>(0, 1),
-							DistParam.at<float>(0, 2), DistParam.at<float>(0, 3));
-}
+//void DispParam()
+//{
+//	for (int i = 0; i < 3; i++)
+//	{
+//		printf("%f %f %f\n", IntrinsicMat.at<float>(i, 0), IntrinsicMat.at<float>(i, 1),
+//							 IntrinsicMat.at<float>(i, 2));
+//	}
+//	printf("%f %f %f %f\n", DistParam.at<float>(0, 0), DistParam.at<float>(0, 1),
+//							DistParam.at<float>(0, 2), DistParam.at<float>(0, 3));
+//}
 
-void DispExtParam()
-{
-	for (int i = 0; i < 3; i++)
-	{
-		cout << RotationMat.at<double>(i, 0) << " "
-			 << RotationMat.at<double>(i, 1) << " "
-			 << RotationMat.at<double>(i, 2) << endl;
-	}
+//void DispExtParam()
+//{
+//	for (int i = 0; i < 3; i++)
+//	{
+//		cout << RotationMat.at<double>(i, 0) << " "
+//			 << RotationMat.at<double>(i, 1) << " "
+//			 << RotationMat.at<double>(i, 2) << endl;
+//	}
+//
+//	cout << endl;
+//	cout << TranslationVec.at<double>(0, 0) << " "
+//		 << TranslationVec.at<double>(1, 0) << " "
+//		 << TranslationVec.at<double>(2, 0) << endl;
+//	cout << endl;
+//}
 
-	cout << endl;
-	cout << TranslationVec.at<double>(0, 0) << " "
-		 << TranslationVec.at<double>(1, 0) << " "
-		 << TranslationVec.at<double>(2, 0) << endl;
-	cout << endl;
-}
-
-bool LoadCameraParameters(char * Filename)
+bool LoadCameraParameters(char * Filename, int side)
 {
 	FILE	*	fp;
 	errno_t		err;
@@ -321,35 +330,35 @@ bool LoadCameraParameters(char * Filename)
 	{
 		for (int i = 0; i < 3; i++)
 		{
-			fscanf_s(fp, "%f %f %f\n", &IntrinsicMat.at<float>(i, 0),
-									   &IntrinsicMat.at<float>(i, 1),
-									   &IntrinsicMat.at<float>(i, 2));
+			fscanf_s(fp, "%f %f %f\n", &IntrinsicMat[side].at<float>(i, 0),
+									   &IntrinsicMat[side].at<float>(i, 1),
+									   &IntrinsicMat[side].at<float>(i, 2));
 		}
-		fscanf_s(fp, "%f %f %f %f\n", &DistParam.at<float>(0, 0),
-									  &DistParam.at<float>(0, 1),
-									  &DistParam.at<float>(0, 2),
-									  &DistParam.at<float>(0, 3));
+		fscanf_s(fp, "%f %f %f %f\n", &DistParam[side].at<float>(0, 0),
+									  &DistParam[side].at<float>(0, 1),
+									  &DistParam[side].at<float>(0, 2),
+									  &DistParam[side].at<float>(0, 3));
 		fclose(fp);
 
 		return true;
 	}
 }
 
-void SaveExtrinsicParameters(char * Filename)
-{
-	FILE * fp;
-
-	errno_t err = fopen_s(&fp, Filename, "w");
-	for (int i = 0; i < 3; i++)
-	{
-		fprintf(fp, "%f %f %f %f\n", RotationMat.at<double>(i, 0),
-									 RotationMat.at<double>(i, 1),
-									 RotationMat.at<double>(i, 2),
-									 TranslationVec.at<double>(i, 0));
-	}
-	fprintf(fp, "0.0 0.0 0.0 1.0");
-	fclose(fp);
-}
+//void SaveExtrinsicParameters(char * Filename)
+//{
+//	FILE * fp;
+//
+//	errno_t err = fopen_s(&fp, Filename, "w");
+//	for (int i = 0; i < 3; i++)
+//	{
+//		fprintf(fp, "%f %f %f %f\n", RotationMat.at<double>(i, 0),
+//									 RotationMat.at<double>(i, 1),
+//									 RotationMat.at<double>(i, 2),
+//									 TranslationVec.at<double>(i, 0));
+//	}
+//	fprintf(fp, "0.0 0.0 0.0 1.0");
+//	fclose(fp);
+//}
 
 //void myKeyboard(unsigned char key, int mouseX, int mouseY)
 //{

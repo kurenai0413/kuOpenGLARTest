@@ -15,13 +15,12 @@ using namespace std;
 #define		ImgHeight	480
 #define     farClip		50
 #define		nearClip	5000
-#define		cbSize		30
+#define		cbSize		25
 
 Mat					CamFrame[2];
 Mat					UndistortedFrame[2];
 Mat					StereoFrame;
 
-Mat					GrayImg;
 VideoCapture	*	cap[2];
 
 Mat					IntrinsicMat[2];
@@ -34,6 +33,7 @@ Mat					RotationMat[2];
 Mat					TranslationVec[2];
 
 double				m[2][16];
+double				exglpara[2][16];
 double				m_right[16];
 
 void Init();
@@ -49,6 +49,9 @@ void ExtrinsicCVtoGL(Mat RotMat, Mat TransVec, double GLModelView[16]);
 void DrawStereoFrame(Mat Frame[2]);
 bool FindExtrinsicParam(int side);
 void RenderWireCubes(int CBSize);
+bool DetectChessboardCV(int side);
+void SetGLProjectionMat(int side, double m[16]);
+void SetGLModelviewMat(Mat gl_para[16]);
 
 //void myKeyboard(unsigned char key, int mouseX, int mouseY);
 //void myReshape(int width, int height);
@@ -103,6 +106,7 @@ void Init()
 void DispFunc()
 {
 	int		i;
+	bool	CBFound[2];
 
 	// clear the window
 	glClear(GL_COLOR_BUFFER_BIT);
@@ -113,37 +117,27 @@ void DispFunc()
 		undistort(CamFrame[i], UndistortedFrame[i], IntrinsicMat[i], DistParam[i]);
 	}
 
-	cvtColor(UndistortedFrame[Left], GrayImg, CV_RGB2GRAY);
-
-	bool CBFound = findChessboardCorners(GrayImg, Size(5, 7), CB2DPts[Left],
-										 CALIB_CB_ADAPTIVE_THRESH + CALIB_CB_NORMALIZE_IMAGE);
-	drawChessboardCorners(UndistortedFrame[Left], Size(5, 7), Mat(CB2DPts[Left]), CBFound);
+	CBFound[Left] = DetectChessboardCV(Left);
 
 	DrawStereoFrame(UndistortedFrame);
-
-	// set viewport
-	glViewport(0, 0, ImgWidth, ImgHeight);
-
-	glMatrixMode(GL_PROJECTION);
-	IntrinsicCVtoGL(IntrinsicMat[Left], m[0]);
-	glLoadMatrixd(m[0]);
+	// render background first, or the stereoframe will overlay the virtual object.
 	
-	if (CBFound)
+	glViewport(0, 0, ImgWidth, ImgHeight);			// set viewport
+	SetGLProjectionMat(Left, m[Left]);
+
+	if (CBFound[Left])
 	{
 		solvePnP(CB3DPts, CB2DPts[Left], 
 				 IntrinsicMat[Left], DistParam[Left], 
 				 RotationVec[Left], TranslationVec[Left]);
 		Rodrigues(RotationVec[Left], RotationMat[Left]);
 
-		//DispExtParam();
-		//SaveExtrinsicParameters("ExtParam_Left.txt");
-
 		// you will have to set modelview matrix using extrinsic camera params
 		double gl_para[16];
 		glMatrixMode(GL_MODELVIEW);
 		glLoadIdentity();
-		ExtrinsicCVtoGL(RotationMat[Left], TranslationVec[Left], gl_para);
-		glLoadMatrixd(gl_para);
+		ExtrinsicCVtoGL(RotationMat[Left], TranslationVec[Left], exglpara[Left]);
+		glLoadMatrixd(exglpara[Left]);
 
 		//now that the camera params have been set, draw your 3D shapes
 		//first, save the current matrix
@@ -290,6 +284,29 @@ void RenderWireCubes(int CBSize)
 			glPopMatrix();
 		}
 	}
+}
+
+bool DetectChessboardCV(int side)
+{
+	Mat		GrayImg;
+	
+	cvtColor(UndistortedFrame[side], GrayImg, CV_RGB2GRAY);
+
+	bool CBFound = findChessboardCorners(GrayImg, Size(5, 7), CB2DPts[side],
+										 CALIB_CB_ADAPTIVE_THRESH + CALIB_CB_NORMALIZE_IMAGE);
+	drawChessboardCorners(UndistortedFrame[side], Size(5, 7), Mat(CB2DPts[side]), CBFound);
+
+	if (CBFound == true)
+		return true;
+	else
+		return false;
+}
+
+void SetGLProjectionMat(int side, double m[16])
+{
+	glMatrixMode(GL_PROJECTION);
+	IntrinsicCVtoGL(IntrinsicMat[side], m);
+	glLoadMatrixd(m);
 }
 
 void SetCB3DPts(int CBSize)

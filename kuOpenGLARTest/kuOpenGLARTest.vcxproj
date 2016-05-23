@@ -69,7 +69,7 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <IncludePath>D:\OpenCV310\include;C:\ANN\include;$(IncludePath)</IncludePath>
+    <IncludePath>D:\OpenCV310\include;$(IncludePath)</IncludePath>
     <LibraryPath>D:\OpenCV310\lib;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">

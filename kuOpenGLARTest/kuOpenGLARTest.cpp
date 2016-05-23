@@ -9,8 +9,8 @@
 using namespace cv;
 using namespace std;
 
-#define		Left		1
-#define		Right		0
+#define		Left		0
+#define		Right		1
 #define		ImgWidth	640
 #define		ImgHeight	480
 #define     farClip		50
@@ -80,8 +80,8 @@ void Init()
 	glutCreateWindow("OpenGLQQ");
 
 	// initialize OpenCV video capture
-	cap[Left]  = new VideoCapture(Left);
-	cap[Right] = new VideoCapture(Right);
+	cap[Left]  = new VideoCapture(1);
+	cap[Right] = new VideoCapture(0);
 
 	StereoFrame.create(ImgHeight, 2 * ImgWidth, CV_8UC3);
 
@@ -95,7 +95,7 @@ void Init()
 	}
 
 	LoadIntrinsicParam("IntParam_Left.txt", Left);
-	LoadIntrinsicParam("IntParam_Right.txt", Right);
+	LoadIntrinsicParam("IntParam_Left.txt", Right);
 	
 	for (i = 0; i < 2;i++)
 		DispIntrinsicParam(i);
@@ -117,26 +117,34 @@ void DispFunc()
 		undistort(CamFrame[i], UndistortedFrame[i], IntrinsicMat[i], DistParam[i]);
 	}
 
+	//imshow("Left Image",CamFrame[Left]);
+	//imshow("Right Image",CamFrame[Right]);
+
 	DrawStereoFrame(UndistortedFrame);
 	// render background first, or the stereoframe will overlay the virtual object.
 	
-	glViewport(0, 0, ImgWidth, ImgHeight);			// set viewport
-	SetGLProjectionMat(Left, m[Left]);
+	i = 0;
 
-	CBFound[Left] = CalExtrinsicParamCV(Left);
+	for (i = 0; i < 2; i++)
+	{
+		glViewport(ImgWidth * i, 0, ImgWidth, ImgHeight);
+		SetGLProjectionMat(i, m[i]);
 
-	if (CBFound[Left])
-	{	
-		SetGLModelviewMat(Left, exglpara[Left]);
+		CBFound[i] = CalExtrinsicParamCV(i);
 
-		//now that the camera params have been set, draw your 3D shapes
-		//first, save the current matrix
-		glPushMatrix();
-		
-		RenderWireCubes(cbSize);
-		DrawAxes(cbSize);
+		if (CBFound[i])
+		{
+			SetGLModelviewMat(i, exglpara[i]);
 
-		glPopMatrix();
+			//now that the camera params have been set, draw your 3D shapes
+			//first, save the current matrix
+			glPushMatrix();
+
+			RenderWireCubes(cbSize);
+			DrawAxes(cbSize);
+
+			glPopMatrix();
+		}
 	}
 	
 	glClear(GL_DEPTH_BUFFER_BIT);
@@ -245,7 +253,7 @@ void DrawStereoFrame(Mat Frame[2])
 	for (i = 0; i < 2; i++)
 	{
 		flip(Frame[i], GLFlipedFrame, 0);
-		GLFlipedFrame.copyTo(StereoFrame(Rect(ImgWidth - ImgWidth*i, 0, ImgWidth, ImgHeight)));
+		GLFlipedFrame.copyTo(StereoFrame(Rect(ImgWidth*i, 0, ImgWidth, ImgHeight)));
 	}
 
 	glDrawPixels(2 * ImgWidth, ImgHeight,

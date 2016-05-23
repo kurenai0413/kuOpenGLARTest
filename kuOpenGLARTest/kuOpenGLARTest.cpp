@@ -9,8 +9,8 @@
 using namespace cv;
 using namespace std;
 
-#define		Left		0
-#define		Right		1
+#define		Left		1
+#define		Right		0
 #define		ImgWidth	640
 #define		ImgHeight	480
 #define     farClip		50
@@ -77,8 +77,8 @@ void Init()
 	glutCreateWindow("OpenGLQQ");
 
 	// initialize OpenCV video capture
-	cap[Left]  = new VideoCapture(0);
-	cap[Right] = new VideoCapture(1);
+	cap[Left]  = new VideoCapture(Left);
+	cap[Right] = new VideoCapture(Right);
 
 	StereoFrame.create(ImgHeight, 2 * ImgWidth, CV_8UC3);
 
@@ -261,7 +261,7 @@ void DrawStereoFrame(Mat Frame[2])
 	for (i = 0; i < 2; i++)
 	{
 		flip(Frame[i], GLFlipedFrame, 0);
-		GLFlipedFrame.copyTo(StereoFrame(Rect(ImgWidth*i, 0, ImgWidth, ImgHeight)));
+		GLFlipedFrame.copyTo(StereoFrame(Rect(ImgWidth - ImgWidth*i, 0, ImgWidth, ImgHeight)));
 	}
 
 	glDrawPixels(2 * ImgWidth, ImgHeight,

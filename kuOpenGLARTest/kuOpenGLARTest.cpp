@@ -1,8 +1,12 @@
 #include <windows.h>
-#include "gl/gl.h"
-#include "gl/glu.h"
 #include "gl/glut.h"
 #include "opencv2/opencv.hpp"
+#include <GLFW/glfw3.h>
+
+#pragma comment(lib,"opencv_world310d.lib")
+#pragma comment(lib,"glfw3.lib")
+#pragma comment(lib,"opengl32.lib")
+
 
 #pragma comment(lib,"opencv_world310d.lib")
 
@@ -28,9 +32,16 @@ Mat					RotationVec;
 Mat					RotationMat;
 Mat					TranslationVec;
 
+GLFWwindow		*	window;
+
+bool				isIntrinsicLoaded;
+
 double				m[16];
 
 void Init();
+static void error_callback(int error, const char* description);
+static void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods);
+
 void DispFunc();
 void DispParam();
 void DispExtParam();
@@ -47,22 +58,38 @@ int main()
 {
 	Init();
 
-	// set the display callback
-	glutDisplayFunc(DispFunc);
+	while (!glfwWindowShouldClose(window))
+	{
+		DispFunc();
 
-//	glutKeyboardFunc(myKeyboard);
-//	glutReshapeFunc(myReshape);
+		glfwSwapBuffers(window);
+		glfwPollEvents();	// This function processes only those events that are already 
+							// in the event queue and then returns immediately
+	}
 
-	glutMainLoop();
+	glfwDestroyWindow(window);
+	glfwTerminate();
+
+	exit(EXIT_SUCCESS);
 }
 
 void Init()
 {
-	// initialize GLUT
-	glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB);
-	glutInitWindowSize(ImgWidth, ImgHeight);
-	glutInitWindowPosition(0, 0);
-	glutCreateWindow("OpenGLQQ");
+	glfwSetErrorCallback(error_callback);
+
+	if (!glfwInit())
+		exit(EXIT_FAILURE);
+
+	window = glfwCreateWindow(ImgWidth, ImgHeight, "Stereo", NULL, NULL);
+	if (!window)
+	{
+		glfwTerminate();
+		exit(EXIT_FAILURE);
+	}
+
+	glfwMakeContextCurrent(window);
+	glfwSwapInterval(1);					// the number of screen updates to wait from the time
+	glfwSetKeyCallback(window, key_callback);
 
 	// initialize OpenCV video capture
 	cap = new VideoCapture(0);
@@ -73,7 +100,7 @@ void Init()
 	RotationMat.create(3, 3, CV_64FC1);
 	TranslationVec.create(3, 1, CV_64FC1);
 
-	if (LoadCameraParameters("IntParam_Left.txt"))
+	if (isIntrinsicLoaded = LoadCameraParameters("IntParam_Left.txt"))
 	{
 		// set projection matrix using intrinsic camera params
 		glMatrixMode(GL_PROJECTION);
@@ -88,6 +115,7 @@ void Init()
 
 void DispFunc()
 {
+	Mat tempimage;
 	Mat UndistortImg;
 
 	// clear the window
@@ -95,10 +123,11 @@ void DispFunc()
 
 	cap->read(frame);				// capture image
 
-	// flip camera frame
-	Mat tempimage;
+	if (isIntrinsicLoaded)
+	{
+		undistort(frame, UndistortImg, IntrinsicMat, DistParam);
+	}
 
-	undistort(frame,UndistortImg,IntrinsicMat,DistParam);
 	cvtColor(frame, GrayImg, CV_RGB2GRAY);
 
 	bool CBFound = findChessboardCorners(GrayImg, Size(5, 7), CB2DPts,
@@ -109,15 +138,12 @@ void DispFunc()
 	{
 		solvePnP(CB3DPts, CB2DPts, IntrinsicMat, DistParam, RotationVec, TranslationVec);
 		Rodrigues(RotationVec, RotationMat);
-
-		//DispExtParam();
-		//SaveExtrinsicParameters("ExtParam_Left.txt");
 	}
 	
 	flip(UndistortImg, tempimage, 0);
 	glDrawPixels(ImgWidth, ImgHeight,
 				 GL_BGR_EXT, GL_UNSIGNED_BYTE, tempimage.ptr());
-
+	
 	// set viewport
 	glViewport(0, 0, ImgWidth, ImgHeight);
 
@@ -127,7 +153,6 @@ void DispFunc()
 	glLoadIdentity();
 	ExtrinsicCVtoGL(RotationMat, TranslationVec, gl_para);
 	glLoadMatrixd(gl_para);
-//	gluLookAt(0, 0, 5, 0, 0, 0, 0, 1, 0);
 
 	FILE * fp;
 	errno_t err = fopen_s(&fp, "GLParam.txt", "w");
@@ -172,12 +197,6 @@ void DispFunc()
 
 	glPopMatrix();
 	glClear(GL_DEPTH_BUFFER_BIT);
-
-	// show the rendering on the screen
-	glutSwapBuffers();
-
-	// post the next redisplay
-	glutPostRedisplay();
 }
 
 void DrawAxes(float length)
@@ -351,10 +370,13 @@ void SaveExtrinsicParameters(char * Filename)
 	fclose(fp);
 }
 
-//void myKeyboard(unsigned char key, int mouseX, int mouseY)
-//{
-//}
+static void error_callback(int error, const char* description)
+{
+	fputs(description, stderr);
+}
 
-//void myReshape(int width, int height)
-//{
-//}
+static void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
+{
+	if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
+		glfwSetWindowShouldClose(window, GL_TRUE);
+}

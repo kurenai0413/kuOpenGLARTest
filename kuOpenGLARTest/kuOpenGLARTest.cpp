@@ -3,8 +3,13 @@
 #include "gl/glu.h"
 #include "gl/glut.h"
 #include "opencv2/opencv.hpp"
+#include <GLFW/glfw3.h>
 
-#pragma comment(lib,"opencv_world310d.lib")
+#pragma comment(lib,"glfw3.lib")
+#pragma comment(lib,"opencv_core2413d.lib")
+#pragma comment(lib,"opencv_calib3d2413d.lib")
+#pragma comment(lib,"opencv_imgproc2413d.lib")
+#pragma comment(lib,"opencv_highgui2413d.lib")
 
 using namespace cv;
 using namespace std;
@@ -16,6 +21,9 @@ using namespace std;
 #define     farClip		50
 #define		nearClip	5000
 #define		cbSize		25
+
+GLFWwindow		*	window;
+
 
 Mat					CamFrame[2];
 Mat					UndistortedFrame[2];
@@ -53,31 +61,51 @@ bool CalExtrinsicParamCV(int side);
 void SetGLProjectionMat(int side, double m[16]);
 void SetGLModelviewMat(int side, double gl_para[16]);
 
-//void myKeyboard(unsigned char key, int mouseX, int mouseY);
-//void myReshape(int width, int height);
+static void error_callback(int error, const char* description);
+static void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods);
 
 int main()
 {
 	Init();
 
-	// set the display callback
-	glutDisplayFunc(DispFunc);
+	while (!glfwWindowShouldClose(window))
+	{
+		DispFunc();
 
-//	glutKeyboardFunc(myKeyboard);
-//	glutReshapeFunc(myReshape);
+		glfwSwapBuffers(window);
+		glfwPollEvents();	// This function processes only those events that are already 
+							// in the event queue and then returns immediately
+	}
 
-	glutMainLoop();
+	glfwDestroyWindow(window);
+	glfwTerminate();
+
+	exit(EXIT_SUCCESS);
 }
 
 void Init()
 {
 	int			i;
 
-	// initialize GLUT
-	glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB);
-	glutInitWindowSize(2*ImgWidth, ImgHeight);
-	glutInitWindowPosition(0, 0);
-	glutCreateWindow("OpenGLQQ");
+	#pragma region // OpenGL initialization by GLFW //
+	/////////////////////////////////////////////////////////////////////////////////////
+	glfwSetErrorCallback(error_callback);
+
+	if (!glfwInit())
+		exit(EXIT_FAILURE);
+
+	window = glfwCreateWindow(2 * ImgWidth, ImgHeight, "Stereo", NULL, NULL);
+	if (!window)
+	{
+		glfwTerminate();
+		exit(EXIT_FAILURE);
+	}
+
+	glfwMakeContextCurrent(window);
+	glfwSwapInterval(1);					// the number of screen updates to wait from the time
+	glfwSetKeyCallback(window, key_callback);
+	/////////////////////////////////////////////////////////////////////////////////////
+	#pragma endregion
 
 	// initialize OpenCV video capture
 	cap[Left]  = new VideoCapture(1);
@@ -95,7 +123,7 @@ void Init()
 	}
 
 	LoadIntrinsicParam("IntParam_Left.txt", Left);
-	LoadIntrinsicParam("IntParam_Left.txt", Right);
+	LoadIntrinsicParam("IntParam_Right.txt", Right);
 	
 	for (i = 0; i < 2;i++)
 		DispIntrinsicParam(i);
@@ -123,8 +151,7 @@ void DispFunc()
 	DrawStereoFrame(UndistortedFrame);
 	// render background first, or the stereoframe will overlay the virtual object.
 	
-	i = 0;
-
+	/*
 	for (i = 0; i < 2; i++)
 	{
 		glViewport(ImgWidth * i, 0, ImgWidth, ImgHeight);
@@ -146,14 +173,8 @@ void DispFunc()
 			glPopMatrix();
 		}
 	}
-	
+	*/
 	glClear(GL_DEPTH_BUFFER_BIT);
-
-	// show the rendering on the screen
-	glutSwapBuffers();
-
-	// post the next redisplay
-	glutPostRedisplay();
 }
 
 void DrawAxes(float length)
@@ -421,10 +442,13 @@ bool LoadIntrinsicParam(char * Filename, int side)
 //	fclose(fp);
 //}
 
-//void myKeyboard(unsigned char key, int mouseX, int mouseY)
-//{
-//}
+static void error_callback(int error, const char* description)
+{
+	fputs(description, stderr);
+}
 
-//void myReshape(int width, int height)
-//{
-//}
+static void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
+{
+	if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
+		glfwSetWindowShouldClose(window, GL_TRUE);
+}

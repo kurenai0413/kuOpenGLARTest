@@ -120,7 +120,11 @@
     <ClInclude Include="kuShaderHandler.h" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="BGImgFragmentShader.frag" />
+    <None Include="BGImgVertexShader.vert" />
     <None Include="FragmentShader.frag" />
+    <None Include="ObjectFragmentShader.frag" />
+    <None Include="ObjectVertexShader.vert" />
     <None Include="VertexShader.vert" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

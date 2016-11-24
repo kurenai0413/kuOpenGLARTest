@@ -3,12 +3,12 @@
 #include "opencv2/opencv.hpp"
 #include <GLFW/glfw3.h>
 
-#pragma comment(lib,"opencv_world310d.lib")
-#pragma comment(lib,"glfw3.lib")
-#pragma comment(lib,"opengl32.lib")
+#pragma comment(lib, "opencv_world310d.lib")
+#pragma comment(lib, "glfw3.lib")
+#pragma comment(lib, "glew32.lib")
+#pragma comment(lib, "opengl32.lib")
 
-
-#pragma comment(lib,"opencv_world310d.lib")
+#pragma comment(lib, "opencv_world310d.lib")
 
 using namespace cv;
 using namespace std;

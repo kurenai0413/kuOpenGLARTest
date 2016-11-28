@@ -213,3 +213,8 @@ ModelManifest.xml
 /kuOpenGLARTest.VC.VC.opendb
 /kuOpenGLARTest.VC.opendb
 /kuOpenGLARTest.VC.db
+kuOpenGLARTest/ExtParam_Left_MiM.txt
+kuOpenGLARTest/ExtParam_OpenCV_3DCB.txt
+kuOpenGLARTest/GLParam.txt
+kuOpenGLARTest/IntParam_Left_MiM.txt
+kuOpenGLARTest/RealMarkerPts.txt

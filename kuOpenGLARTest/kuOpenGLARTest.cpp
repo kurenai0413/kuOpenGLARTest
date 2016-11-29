@@ -21,7 +21,7 @@ using namespace std;
 
 #define		pi			3.1415926
 #define		WndWidth	640
-#define		WndHieght	480
+#define		WndHeight	480
 #define     farClip		5000.0
 #define		nearClip	1.0
 
@@ -34,30 +34,32 @@ Mat						GrayImg;
 
 Mat						IntrinsicMat;
 Mat						DistParam;
+
 vector<Point3f>			CB3DPts;
 vector<Point2f>			CB2DPts;
 vector<Point2f>			Projected2DPts;
+
 Mat						RotationVec;
 Mat						RotationMat;
 Mat						TranslationVec;
 
-GLFWwindow			*	window;
-
-bool					isIntrinsicLoaded;
-
 GLfloat					IntrinsicProjMat[16];
 GLfloat					ExtrinsicViewMat[16];
 
-void					Init();
+GLFWwindow			*	kuGLInit(const char * title, int xRes, int yRes);
 static void				error_callback(int error, const char* description);
 static void				key_callback(GLFWwindow* window, int key, int scancode, int action, int mods);
 
 void					DispParam();
 void					DispExtParam();
+
 void					SetCB3DPts();
+
 bool					LoadCameraParameters(char * Filename);
 void					SaveExtrinsicParameters(char * Filename);
+
 void					DrawAxes(float length);
+
 void					IntrinsicCVtoGL(Mat IntParam, GLfloat GLProjection[16]);
 void					ExtrinsicCVtoGL(Mat RotMat, Mat TransVec, GLfloat GLModelView[16]);
 
@@ -131,7 +133,7 @@ const GLuint    CubeIndices[]
 
 int main()
 {
-	Init();
+	GLFWwindow * window = kuGLInit("kuOpenGLTest", WndWidth, WndHeight);
 
 	kuShaderHandler		BGImgShaderHandler;
 	kuShaderHandler		ObjShaderHandler;
@@ -229,18 +231,14 @@ int main()
 	exit(EXIT_SUCCESS);
 }
 
-void Init()
+GLFWwindow * kuGLInit(const char * title, int xRes, int yRes)
 {
-	MiMCam.InitialCamera();
-	ImgWidth  = MiMCam.m_ImageWidth;
-	ImgHeight = MiMCam.m_ImageHeight;
-
 	glfwSetErrorCallback(error_callback);
 
 	if (!glfwInit())
 		exit(EXIT_FAILURE);
 
-	window = glfwCreateWindow(WndWidth, WndHieght, "OpenGLWnd", NULL, NULL);
+	GLFWwindow * window = glfwCreateWindow(xRes, yRes, title, NULL, NULL);
 	if (!window)
 	{
 		glfwTerminate();
@@ -260,7 +258,7 @@ void Init()
 	}
 
 	// Define the viewport dimensions
-	glViewport(0, 0, WndWidth, WndHieght);
+	glViewport(0, 0, WndWidth, WndHeight);
 
 	// Setup OpenGL options (z-buffer)
 	glEnable(GL_DEPTH_TEST);
@@ -275,13 +273,17 @@ void Init()
 
 	glfwSetKeyCallback(window, key_callback);
 
+	MiMCam.InitialCamera();
+	ImgWidth = MiMCam.m_ImageWidth;
+	ImgHeight = MiMCam.m_ImageHeight;
+
 	IntrinsicMat.create(3, 3, CV_32FC1);
 	DistParam.create(1, 4, CV_32FC1);
 	RotationVec.create(3, 1, CV_64FC1);
 	RotationMat.create(3, 3, CV_64FC1);
 	TranslationVec.create(3, 1, CV_64FC1);
 
-	if (isIntrinsicLoaded = LoadCameraParameters("IntParam_Left_MiM.txt"))
+	if (LoadCameraParameters("IntParam_Left_MiM.txt"))
 	{
 		IntrinsicCVtoGL(IntrinsicMat, IntrinsicProjMat);
 
@@ -296,6 +298,8 @@ void Init()
 	}
 
 	SetCB3DPts();
+
+	return window;
 }
 
 void DrawAxes(float length)

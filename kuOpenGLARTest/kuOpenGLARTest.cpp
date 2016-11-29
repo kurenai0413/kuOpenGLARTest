@@ -7,6 +7,7 @@
 #include <GLM/gtc/type_ptr.hpp>
 
 #include "kuShaderHandler.h"
+#include "kuModelObject.h"
 
 #pragma comment(lib, "opencv_world310d.lib")
 #pragma comment(lib, "glfw3.lib")
@@ -44,30 +45,29 @@ GLFWwindow			*	window;
 
 bool					isIntrinsicLoaded;
 
-double					m[16];
-
 GLfloat					IntrinsicProjMat[16];
 GLfloat					ExtrinsicViewMat[16];
+GLfloat					CT2RealModelMat[16];
 
 void					Init();
 static void				error_callback(int error, const char* description);
 static void				key_callback(GLFWwindow* window, int key, int scancode, int action, int mods);
 
-//void					DispFunc();
 void					DispParam();
 void					DispExtParam();
 void					SetCB3DPts();
 bool					LoadCameraParameters(char * Filename);
 void					LoadCB3DPts(char * Filename);
+void					LoadModelMat(char * Filename);
 void					SaveExtrinsicParameters(char * Filename);
 
-void					DrawAxes(float length);
 
 void					IntrinsicCVtoGL(Mat IntParam, GLfloat GLProjection[16]);
 void					ExtrinsicCVtoGL(Mat RotMat, Mat TransVec, GLfloat GLModelView[16]);
 
 GLuint					CreateTexturebyImage(Mat Img);
 void					DrawBGImage(Mat BGImg, kuShaderHandler BGShader);
+
 
 const GLfloat	CubeVertices[]
 = {
@@ -140,8 +140,14 @@ int main()
 
 	kuShaderHandler		BGImgShaderHandler;
 	kuShaderHandler		ObjShaderHandler;
+	kuShaderHandler		ModelShaderHandler;
 	BGImgShaderHandler.Load("BGImgVertexShader.vert", "BGImgFragmentShader.frag");
 	ObjShaderHandler.Load("ObjectVertexShader.vert", "ObjectFragmentShader.frag");
+	ModelShaderHandler.Load("ModelVertexShader.vert", "ModelFragmentShader.frag");
+
+	LoadModelMat("TransVRML2Real.txt");
+
+	kuModelObject		CTHeadModel("CTDummy-LE_5wf.stl");
 
 	GLuint CubeVertexArray = 0;
 	glGenVertexArrays(1, &CubeVertexArray);
@@ -178,11 +184,9 @@ int main()
 	GLuint		ModelMatLoc, ViewMatLoc, ProjMatLoc;
 	glm::mat4	ModelMat, ProjMat, ViewMat;
 
-	ViewMatLoc  = glGetUniformLocation(ObjShaderHandler.ShaderProgramID, "ViewMat");
-	ProjMatLoc  = glGetUniformLocation(ObjShaderHandler.ShaderProgramID, "ProjMat");
-	ModelMatLoc = glGetUniformLocation(ObjShaderHandler.ShaderProgramID, "ModelMat");
-
-	ProjMat = glm::perspective(45.0f, (GLfloat)ImgWidth / (GLfloat)ImgHeight, (GLfloat)nearClip, (GLfloat)farClip);
+	ViewMatLoc  = glGetUniformLocation(ModelShaderHandler.ShaderProgramID, "ViewMat");
+	ProjMatLoc  = glGetUniformLocation(ModelShaderHandler.ShaderProgramID, "ProjMat");
+	ModelMatLoc = glGetUniformLocation(ModelShaderHandler.ShaderProgramID, "ModelMat");
 
 	while (!glfwWindowShouldClose(window))
 	{
@@ -210,17 +214,21 @@ int main()
 
 			ExtrinsicCVtoGL(RotationMat, TranslationVec, ExtrinsicViewMat);
 
-			ObjShaderHandler.Use();
+			//ObjShaderHandler.Use();
 
-			glBindTexture(GL_TEXTURE_2D, CubeTextureID);
+			//glBindTexture(GL_TEXTURE_2D, CubeTextureID);
 
-			glUniformMatrix4fv(ModelMatLoc, 1, GL_FALSE, glm::value_ptr(ModelMat));
+			ModelShaderHandler.Use();
+
+			glUniformMatrix4fv(ModelMatLoc, 1, GL_FALSE, CT2RealModelMat);
 			glUniformMatrix4fv(ViewMatLoc, 1, GL_FALSE, ExtrinsicViewMat);
 			glUniformMatrix4fv(ProjMatLoc, 1, GL_FALSE, IntrinsicProjMat);
 
-			glBindVertexArray(CubeVertexArray);
-			glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
-			glBindVertexArray(0);
+			//glBindVertexArray(CubeVertexArray);
+			//glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
+			//glBindVertexArray(0);
+			
+			CTHeadModel.Draw(ModelShaderHandler);
 		}
 
 		glfwSwapBuffers(window);
@@ -306,30 +314,6 @@ void Init()
 
 	//SetCB3DPts();
 	LoadCB3DPts("CB3DPts_Digitizer.txt");
-}
-
-void DrawAxes(float length)
-{
-	glPushAttrib(GL_POLYGON_BIT | GL_ENABLE_BIT | GL_COLOR_BUFFER_BIT);
-
-	glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-	glDisable(GL_LIGHTING);
-
-	glBegin(GL_LINES);
-	glColor3f(1, 0, 0);
-	glVertex3f(0, 0, 0);
-	glVertex3f(length, 0, 0); // X-axis => red
-
-	glColor3f(0, 1, 0);
-	glVertex3f(0, 0, 0);
-	glVertex3f(0, length, 0); // Y-axis => green
-
-	glColor3f(0, 0, 1);
-	glVertex3f(0, 0, 0);
-	glVertex3f(0, 0, length); // Z-axis => blue
-	glEnd();
-
-	glPopAttrib();
 }
 
 void IntrinsicCVtoGL(Mat IntParam, GLfloat GLProjection[16])
@@ -484,6 +468,19 @@ void LoadCB3DPts(char * Filename)
 
 			CB3DPts.push_back(PtTemp);
 		}
+	}
+	fclose(fp);
+}
+
+void LoadModelMat(char * Filename)
+{
+	FILE * fp;
+
+	errno_t err = fopen_s(&fp, Filename, "r");
+	for (int i = 0; i < 4; i++)
+	{
+		fscanf_s(fp,"%f %f %f %f\n", &CT2RealModelMat[4 * i], &CT2RealModelMat[4 * i + 1],
+									 &CT2RealModelMat[4 * i + 2], &CT2RealModelMat[4 * i + 3]);
 	}
 	fclose(fp);
 }

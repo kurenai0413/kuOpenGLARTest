@@ -69,8 +69,8 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <IncludePath>c:\OpenCV310\include;C:\ANN\include;C:\OpenGL\include;$(IncludePath)</IncludePath>
-    <LibraryPath>c:\OpenCV310\lib;C:\OpenGL\lib;$(LibraryPath)</LibraryPath>
+    <IncludePath>c:\OpenCV310\include;C:\ANN\include;C:\OpenGL\include;C:\Assimp\include;$(IncludePath)</IncludePath>
+    <LibraryPath>c:\OpenCV310\lib;C:\OpenGL\lib;C:\Assimp;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -113,15 +113,21 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="kuMesh.cpp" />
+    <ClCompile Include="kuModelObject.cpp" />
     <ClCompile Include="kuOpenGLARTest.cpp" />
     <ClCompile Include="kuShaderHandler.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="kuMesh.h" />
+    <ClInclude Include="kuModelObject.h" />
     <ClInclude Include="kuShaderHandler.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="BGImgFragmentShader.frag" />
     <None Include="BGImgVertexShader.vert" />
+    <None Include="ModelFragmentShader.frag" />
+    <None Include="ModelVertexShader.vert" />
     <None Include="ObjectFragmentShader.frag" />
     <None Include="ObjectVertexShader.vert" />
   </ItemGroup>

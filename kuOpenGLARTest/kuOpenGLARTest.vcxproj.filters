@@ -31,8 +31,6 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <None Include="FragmentShader.frag" />
-    <None Include="VertexShader.vert" />
     <None Include="BGImgFragmentShader.frag">
       <Filter>Shaders</Filter>
     </None>

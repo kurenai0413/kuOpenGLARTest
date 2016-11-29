@@ -58,8 +58,11 @@ void					DispParam();
 void					DispExtParam();
 void					SetCB3DPts();
 bool					LoadCameraParameters(char * Filename);
+void					LoadCB3DPts(char * Filename);
 void					SaveExtrinsicParameters(char * Filename);
+
 void					DrawAxes(float length);
+
 void					IntrinsicCVtoGL(Mat IntParam, GLfloat GLProjection[16]);
 void					ExtrinsicCVtoGL(Mat RotMat, Mat TransVec, GLfloat GLModelView[16]);
 
@@ -301,7 +304,8 @@ void Init()
 		DispParam();
 	}
 
-	SetCB3DPts();
+	//SetCB3DPts();
+	LoadCB3DPts("CB3DPts_Digitizer.txt");
 }
 
 void DrawAxes(float length)
@@ -464,6 +468,24 @@ bool LoadCameraParameters(char * Filename)
 
 		return true;
 	}
+}
+
+void LoadCB3DPts(char * Filename)
+{
+	FILE	*	fp;
+	Point3f		PtTemp;
+
+	errno_t err = fopen_s(&fp, Filename, "r");
+	for (int i = 0; i < 7; i++)
+	{
+		for (int j = 0; j < 5; j++)
+		{
+			fscanf_s(fp, "%f %f %f\n", &PtTemp.x, &PtTemp.y, &PtTemp.z);
+
+			CB3DPts.push_back(PtTemp);
+		}
+	}
+	fclose(fp);
 }
 
 void SaveExtrinsicParameters(char * Filename)

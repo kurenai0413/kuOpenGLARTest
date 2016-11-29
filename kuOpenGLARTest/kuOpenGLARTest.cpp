@@ -6,6 +6,7 @@
 #include <GLM/gtc/matrix_transform.hpp>
 #include <GLM/gtc/type_ptr.hpp>
 
+#include "kuMiMCamera.h"
 #include "kuShaderHandler.h"
 
 #pragma comment(lib, "opencv_world310d.lib")
@@ -18,18 +19,18 @@
 using namespace cv;
 using namespace std;
 
-
 #define		pi			3.1415926
-#define		ImgWidth	640
-#define		ImgHeight	480
+//#define		ImgWidth	640
+//#define		ImgHeight	480
 #define     farClip		5000.0
 #define		nearClip	1.0
 
+kuMiMCamera				MiMCam;
+
+int						ImgWidth;
+int						ImgHeight;
 
 Mat						GrayImg;
-
-VideoCapture		*	CamCapture = NULL;
-Mat						CamFrame;
 
 Mat						IntrinsicMat;
 Mat						DistParam;
@@ -44,8 +45,6 @@ GLFWwindow			*	window;
 
 bool					isIntrinsicLoaded;
 
-double					m[16];
-
 GLfloat					IntrinsicProjMat[16];
 GLfloat					ExtrinsicViewMat[16];
 
@@ -53,7 +52,6 @@ void					Init();
 static void				error_callback(int error, const char* description);
 static void				key_callback(GLFWwindow* window, int key, int scancode, int action, int mods);
 
-//void					DispFunc();
 void					DispParam();
 void					DispExtParam();
 void					SetCB3DPts();
@@ -185,9 +183,8 @@ int main()
 	{
 		glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-		CamCapture->read(CamFrame);
-
+		
+		/*
 		Mat	GrayImg;
 		cvtColor(CamFrame, GrayImg, CV_BGR2GRAY);
 
@@ -219,6 +216,7 @@ int main()
 			glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
 			glBindVertexArray(0);
 		}
+		*/
 
 		glfwSwapBuffers(window);
 		glfwPollEvents();					// This function processes only those events that are already 
@@ -233,6 +231,10 @@ int main()
 
 void Init()
 {
+	MiMCam.InitialCamera();
+	ImgWidth  = MiMCam.m_ImageWidth;
+	ImgHeight = MiMCam.m_ImageHeight;
+
 	glfwSetErrorCallback(error_callback);
 
 	if (!glfwInit())
@@ -258,7 +260,7 @@ void Init()
 	}
 
 	// Define the viewport dimensions
-	glViewport(0, 0, 640, 480);
+	glViewport(0, 0, ImgWidth, ImgHeight);
 
 	// Setup OpenGL options (z-buffer)
 	glEnable(GL_DEPTH_TEST);
@@ -273,9 +275,6 @@ void Init()
 
 	glfwSetKeyCallback(window, key_callback);
 
-	// initialize OpenCV video capture
-	CamCapture = new VideoCapture(0);
-
 	IntrinsicMat.create(3, 3, CV_32FC1);
 	DistParam.create(1, 4, CV_32FC1);
 	RotationVec.create(3, 1, CV_64FC1);
@@ -284,11 +283,6 @@ void Init()
 
 	if (isIntrinsicLoaded = LoadCameraParameters("IntParam_Left.txt"))
 	{
-		// set projection matrix using intrinsic camera params
-		// glMatrixMode(GL_PROJECTION);
-		// IntrinsicCVtoGL(IntrinsicMat, m);
-		// glLoadMatrixd(m);
-
 		IntrinsicCVtoGL(IntrinsicMat, IntrinsicProjMat);
 
 		for (int i = 0; i < 4; i++)
@@ -584,7 +578,7 @@ void DrawBGImage(Mat BGImg, kuShaderHandler BGShader)
 	glBindVertexArray(BGVertexArray);
 	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 	glBindVertexArray(0);
-	//glBindTexture(GL_TEXTURE_2D, 0);
+	glBindTexture(GL_TEXTURE_2D, 0);
 
 	glDeleteTextures(1, &BGImgTextureID);
 

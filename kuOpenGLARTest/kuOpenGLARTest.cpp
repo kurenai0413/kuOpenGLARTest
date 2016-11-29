@@ -8,6 +8,7 @@
 
 #include "kuMiMCamera.h"
 #include "kuShaderHandler.h"
+#include "kuModelObject.h"
 
 #pragma comment(lib, "opencv_world310d.lib")
 #pragma comment(lib, "glfw3.lib")

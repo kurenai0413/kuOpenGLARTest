@@ -100,7 +100,7 @@ const GLfloat	CubeVertices[]
 	-50.0f,  50.0f,  100.0f,  		// 19: Bottom Left
 
 	// Down Face
-	-50.0f, -50.0f,  100.0f,			// 20: Top Left 
+	-50.0f, -50.0f,  100.0f,		// 20: Top Left 
 	 50.0f, -50.0f,  100.0f,  		// 21: Top Right
 	 50.0f, -50.0f,   0.0f,    		// 22: Bottom Right
 	-50.0f, -50.0f,   0.0f  		// 23: Bottom Left
@@ -179,8 +179,6 @@ int main()
 	ViewMatLoc  = glGetUniformLocation(ObjShaderHandler.ShaderProgramID, "ViewMat");
 	ProjMatLoc  = glGetUniformLocation(ObjShaderHandler.ShaderProgramID, "ProjMat");
 	ModelMatLoc = glGetUniformLocation(ObjShaderHandler.ShaderProgramID, "ModelMat");
-
-	ProjMat = glm::perspective(45.0f, (GLfloat)ImgWidth / (GLfloat)ImgHeight, (GLfloat)nearClip, (GLfloat)farClip);
 
 	while (!glfwWindowShouldClose(window))
 	{

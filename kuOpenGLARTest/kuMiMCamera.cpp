@@ -129,6 +129,8 @@ void kuMiMCamera::CloseCamera()
 		m_IsCameraInitialized = false;
 		CameraAlignFree(m_pFrameBuffer);
 		CameraUnInit(m_hCamera);
+
+		cout << "Camera closed." << endl;
 	}
 }
 

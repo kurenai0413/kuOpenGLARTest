@@ -20,8 +20,8 @@ using namespace cv;
 using namespace std;
 
 #define		pi			3.1415926
-//#define		ImgWidth	640
-//#define		ImgHeight	480
+#define		WndWidth	640
+#define		WndHieght	480
 #define     farClip		5000.0
 #define		nearClip	1.0
 
@@ -184,15 +184,15 @@ int main()
 		glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		
-		/*
-		Mat	GrayImg;
-		cvtColor(CamFrame, GrayImg, CV_BGR2GRAY);
+		MiMCam.CaptureFrame();
+
+		cvtColor(MiMCam.m_CamFrame, GrayImg, CV_BGR2GRAY);
 
 		bool CBFound = findChessboardCorners(GrayImg, Size(5, 7), CB2DPts,
 											 CALIB_CB_ADAPTIVE_THRESH + CALIB_CB_NORMALIZE_IMAGE);
 		//drawChessboardCorners(CamFrame, Size(5, 7), Mat(CB2DPts), CBFound);
 
-		DrawBGImage(CamFrame, BGImgShaderHandler);
+		DrawBGImage(MiMCam.m_CamFrame, BGImgShaderHandler);
 
 		glEnable(GL_DEPTH_TEST);
 		glDepthMask(GL_TRUE);
@@ -216,7 +216,6 @@ int main()
 			glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
 			glBindVertexArray(0);
 		}
-		*/
 
 		glfwSwapBuffers(window);
 		glfwPollEvents();					// This function processes only those events that are already 
@@ -225,6 +224,7 @@ int main()
 
 	glfwDestroyWindow(window);
 	glfwTerminate();
+	MiMCam.CloseCamera();
 
 	exit(EXIT_SUCCESS);
 }
@@ -240,7 +240,7 @@ void Init()
 	if (!glfwInit())
 		exit(EXIT_FAILURE);
 
-	window = glfwCreateWindow(ImgWidth, ImgHeight, "OpenGLWnd", NULL, NULL);
+	window = glfwCreateWindow(WndWidth, WndHieght, "OpenGLWnd", NULL, NULL);
 	if (!window)
 	{
 		glfwTerminate();
@@ -260,7 +260,7 @@ void Init()
 	}
 
 	// Define the viewport dimensions
-	glViewport(0, 0, ImgWidth, ImgHeight);
+	glViewport(0, 0, WndWidth, WndHieght);
 
 	// Setup OpenGL options (z-buffer)
 	glEnable(GL_DEPTH_TEST);
@@ -281,7 +281,7 @@ void Init()
 	RotationMat.create(3, 3, CV_64FC1);
 	TranslationVec.create(3, 1, CV_64FC1);
 
-	if (isIntrinsicLoaded = LoadCameraParameters("IntParam_Left.txt"))
+	if (isIntrinsicLoaded = LoadCameraParameters("IntParam_Left_MiM.txt"))
 	{
 		IntrinsicCVtoGL(IntrinsicMat, IntrinsicProjMat);
 

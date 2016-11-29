@@ -7,7 +7,6 @@
 #include <GLM/gtc/type_ptr.hpp>
 
 #include "kuShaderHandler.h"
-#include "kuMiMCamera.h"
 
 #pragma comment(lib, "opencv_world310d.lib")
 #pragma comment(lib, "glfw3.lib")

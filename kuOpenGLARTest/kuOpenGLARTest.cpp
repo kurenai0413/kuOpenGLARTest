@@ -49,6 +49,9 @@ GLfloat					IntrinsicProjMat[16];
 GLfloat					ExtrinsicViewMat[16];
 GLfloat					CT2RealModelMat[16];
 
+Mat						ViewMatCV;
+Mat						InvertViewMatCV;
+
 GLFWwindow			*	kuGLInit(const char * title, int xRes, int yRes);
 static void				error_callback(int error, const char* description);
 static void				key_callback(GLFWwindow* window, int key, int scancode, int action, int mods);
@@ -60,7 +63,6 @@ bool					LoadCameraParameters(char * Filename);
 void					LoadCB3DPts(char * Filename);
 void					LoadModelMat(char * Filename);
 void					SaveExtrinsicParameters(char * Filename);
-
 
 void					IntrinsicCVtoGL(Mat IntParam, GLfloat GLProjection[16]);
 void					ExtrinsicCVtoGL(Mat RotMat, Mat TransVec, GLfloat GLModelView[16]);
@@ -181,12 +183,15 @@ int main()
 	Mat		CubeTextureImg = imread("ihatepeople.jpg");
 	GLuint	CubeTextureID = CreateTexturebyImage(CubeTextureImg);
 
-	GLuint		ModelMatLoc, ViewMatLoc, ProjMatLoc;
+	GLuint		ModelMatLoc, ViewMatLoc, ProjMatLoc, CameraPosLoc;
 	glm::mat4	ModelMat, ProjMat, ViewMat;
 
 	ViewMatLoc  = glGetUniformLocation(ModelShaderHandler.ShaderProgramID, "ViewMat");
 	ProjMatLoc  = glGetUniformLocation(ModelShaderHandler.ShaderProgramID, "ProjMat");
 	ModelMatLoc = glGetUniformLocation(ModelShaderHandler.ShaderProgramID, "ModelMat");
+	CameraPosLoc = glGetUniformLocation(ModelShaderHandler.ShaderProgramID, "CameraPos");
+
+	ViewMatCV = Mat(4, 4, CV_32FC1, float(0));
 
 	while (!glfwWindowShouldClose(window))
 	{
@@ -214,6 +219,21 @@ int main()
 
 			ExtrinsicCVtoGL(RotationMat, TranslationVec, ExtrinsicViewMat);
 
+			for (int i = 0; i < 3; i++)
+			{
+				for (int j = 0; j < 3; j++)
+				{
+					ViewMatCV.at<float>(i, j) = RotationMat.at<double>(i, j);
+				}
+				
+				ViewMatCV.at<float>(i, 3) = TranslationVec.at<double>(i, 0);
+			}
+			ViewMatCV.at<float>(3, 3) = 1;
+
+			invert(ViewMatCV, InvertViewMatCV);
+
+			glm::vec3 CamPosition(InvertViewMatCV.at<float>(0, 3), InvertViewMatCV.at<float>(1, 3), InvertViewMatCV.at<float>(2, 3));
+
 			//ObjShaderHandler.Use();
 			//glBindTexture(GL_TEXTURE_2D, CubeTextureID);
 			//glBindVertexArray(CubeVertexArray);
@@ -225,6 +245,7 @@ int main()
 			glUniformMatrix4fv(ModelMatLoc, 1, GL_FALSE, CT2RealModelMat);
 			glUniformMatrix4fv(ViewMatLoc, 1, GL_FALSE, ExtrinsicViewMat);
 			glUniformMatrix4fv(ProjMatLoc, 1, GL_FALSE, IntrinsicProjMat);
+			glUniform3fv(CameraPosLoc, 1, glm::value_ptr(CamPosition));
 			
 			CTHeadModel.Draw(ModelShaderHandler);
 		}

@@ -179,8 +179,6 @@ int main()
 	ProjMatLoc  = glGetUniformLocation(ObjShaderHandler.ShaderProgramID, "ProjMat");
 	ModelMatLoc = glGetUniformLocation(ObjShaderHandler.ShaderProgramID, "ModelMat");
 
-	ProjMat = glm::perspective(45.0f, (GLfloat)ImgWidth / (GLfloat)ImgHeight, (GLfloat)nearClip, (GLfloat)farClip);
-
 	while (!glfwWindowShouldClose(window))
 	{
 		glClearColor(0.2f, 0.3f, 0.3f, 1.0f);

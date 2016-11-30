@@ -21,11 +21,13 @@ using namespace std;
 
 
 #define		pi			3.1415926
-#define		ImgWidth	640
-#define		ImgHeight	480
+#define		WndWidth	640
+#define		WndHeight	480
 #define     farClip		5000.0
 #define		nearClip	1.0
 
+#define		ImgWidth	640
+#define		ImgHeight	480
 
 Mat						GrayImg;
 
@@ -41,15 +43,13 @@ Mat						RotationVec;
 Mat						RotationMat;
 Mat						TranslationVec;
 
-GLFWwindow			*	window;
-
 bool					isIntrinsicLoaded;
 
 GLfloat					IntrinsicProjMat[16];
 GLfloat					ExtrinsicViewMat[16];
 GLfloat					CT2RealModelMat[16];
 
-void					Init();
+GLFWwindow			*	kuGLInit(const char * title, int xRes, int yRes);
 static void				error_callback(int error, const char* description);
 static void				key_callback(GLFWwindow* window, int key, int scancode, int action, int mods);
 
@@ -136,7 +136,7 @@ const GLuint    CubeIndices[]
 
 int main()
 {
-	Init();
+	GLFWwindow			* window = 	kuGLInit("kuOpenGLARTest", WndWidth, WndHeight);
 
 	kuShaderHandler		BGImgShaderHandler;
 	kuShaderHandler		ObjShaderHandler;
@@ -215,18 +215,16 @@ int main()
 			ExtrinsicCVtoGL(RotationMat, TranslationVec, ExtrinsicViewMat);
 
 			//ObjShaderHandler.Use();
-
 			//glBindTexture(GL_TEXTURE_2D, CubeTextureID);
+			//glBindVertexArray(CubeVertexArray);
+			//glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
+			//glBindVertexArray(0);
 
 			ModelShaderHandler.Use();
 
 			glUniformMatrix4fv(ModelMatLoc, 1, GL_FALSE, CT2RealModelMat);
 			glUniformMatrix4fv(ViewMatLoc, 1, GL_FALSE, ExtrinsicViewMat);
 			glUniformMatrix4fv(ProjMatLoc, 1, GL_FALSE, IntrinsicProjMat);
-
-			//glBindVertexArray(CubeVertexArray);
-			//glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
-			//glBindVertexArray(0);
 			
 			CTHeadModel.Draw(ModelShaderHandler);
 		}
@@ -242,14 +240,14 @@ int main()
 	exit(EXIT_SUCCESS);
 }
 
-void Init()
+GLFWwindow * kuGLInit(const char * title, int xRes, int yRes)
 {
 	glfwSetErrorCallback(error_callback);
 
 	if (!glfwInit())
 		exit(EXIT_FAILURE);
 
-	window = glfwCreateWindow(ImgWidth, ImgHeight, "OpenGLWnd", NULL, NULL);
+	GLFWwindow * window = glfwCreateWindow(xRes, yRes, title, NULL, NULL);
 	if (!window)
 	{
 		glfwTerminate();
@@ -269,7 +267,7 @@ void Init()
 	}
 
 	// Define the viewport dimensions
-	glViewport(0, 0, 640, 480);
+	glViewport(0, 0, xRes, yRes);
 
 	// Setup OpenGL options (z-buffer)
 	glEnable(GL_DEPTH_TEST);
@@ -314,6 +312,8 @@ void Init()
 
 	//SetCB3DPts();
 	LoadCB3DPts("CB3DPts_Digitizer.txt");
+
+	return window;
 }
 
 void IntrinsicCVtoGL(Mat IntParam, GLfloat GLProjection[16])

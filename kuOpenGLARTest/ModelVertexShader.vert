@@ -10,10 +10,11 @@ out vec3 FragPos;
 uniform mat4 ModelMat;
 uniform mat4 ViewMat;
 uniform mat4 ProjMat;
+uniform mat4 TransSTL2CT;
 								   
 void main()
 {
-	gl_Position = ProjMat * ViewMat * ModelMat * vec4(position, 1.0);
+	gl_Position = ProjMat * ViewMat * ModelMat * TransSTL2CT * vec4(position, 1.0);
 	ourColor = vec3(1.0, 1.0, 1.0);
 
 	//FragPos = position;

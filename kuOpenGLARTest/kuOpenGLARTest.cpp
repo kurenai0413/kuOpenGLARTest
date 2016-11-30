@@ -23,8 +23,8 @@ using namespace std;
 #define		pi			3.1415926
 #define		WndWidth	640
 #define		WndHeight	480
-#define     farClip		5000.0
-#define		nearClip	1.0
+#define     farClip		10000
+#define		nearClip	0.1
 
 #define		ImgWidth	640
 #define		ImgHeight	480
@@ -56,7 +56,7 @@ GLFWwindow			*	kuGLInit(const char * title, int xRes, int yRes);
 static void				error_callback(int error, const char* description);
 static void				key_callback(GLFWwindow* window, int key, int scancode, int action, int mods);
 
-void					DispParam();
+void					DispIntrinsicParam();
 void					DispExtParam();
 void					SetCB3DPts();
 bool					LoadCameraParameters(char * Filename);
@@ -138,19 +138,20 @@ const GLuint    CubeIndices[]
 
 int main()
 {
-	GLFWwindow			* window = 	kuGLInit("kuOpenGLARTest", WndWidth, WndHeight);
+	GLFWwindow		*	window = kuGLInit("kuOpenGLARTest", WndWidth, WndHeight);
 
 	kuShaderHandler		BGImgShaderHandler;
 	kuShaderHandler		ObjShaderHandler;
 	kuShaderHandler		ModelShaderHandler;
 	BGImgShaderHandler.Load("BGImgVertexShader.vert", "BGImgFragmentShader.frag");
-	ObjShaderHandler.Load("ObjectVertexShader.vert", "ObjectFragmentShader.frag");
+	//ObjShaderHandler.Load("ObjectVertexShader.vert", "ObjectFragmentShader.frag");
 	ModelShaderHandler.Load("ModelVertexShader.vert", "ModelFragmentShader.frag");
 
-	LoadModelMat("TransVRML2Real.txt");
+	LoadModelMat("TransCT2Real.txt");
 
 	kuModelObject		CTHeadModel("CTDummy-LE_5wf.stl");
 
+	/*
 	GLuint CubeVertexArray = 0;
 	glGenVertexArrays(1, &CubeVertexArray);
 	GLuint CubeVertexBuffer = 0;							// Vertex Buffer Object (VBO)
@@ -182,16 +183,21 @@ int main()
 
 	Mat		CubeTextureImg = imread("ihatepeople.jpg");
 	GLuint	CubeTextureID = CreateTexturebyImage(CubeTextureImg);
+	*/
 
-	GLuint		ModelMatLoc, ViewMatLoc, ProjMatLoc, CameraPosLoc;
-	glm::mat4	ModelMat, ProjMat, ViewMat;
+	GLuint		ModelMatLoc, ViewMatLoc, ProjMatLoc, CameraPosLoc, TransSTL2CTLoc;
+	glm::mat4	ModelMat, ProjMat, ViewMat;							
+	glm::mat4	TransSTL2CT;
 
-	ViewMatLoc  = glGetUniformLocation(ModelShaderHandler.ShaderProgramID, "ViewMat");
-	ProjMatLoc  = glGetUniformLocation(ModelShaderHandler.ShaderProgramID, "ProjMat");
-	ModelMatLoc = glGetUniformLocation(ModelShaderHandler.ShaderProgramID, "ModelMat");
-	CameraPosLoc = glGetUniformLocation(ModelShaderHandler.ShaderProgramID, "CameraPos");
+	ViewMatLoc     = glGetUniformLocation(ModelShaderHandler.ShaderProgramID, "ViewMat");			// camera extrinsic parameters
+	ProjMatLoc     = glGetUniformLocation(ModelShaderHandler.ShaderProgramID, "ProjMat");			// camera intrinsic parameters
+	ModelMatLoc    = glGetUniformLocation(ModelShaderHandler.ShaderProgramID, "ModelMat");			// TransCT2Real
+	CameraPosLoc   = glGetUniformLocation(ModelShaderHandler.ShaderProgramID, "CameraPos");
+	TransSTL2CTLoc = glGetUniformLocation(ModelShaderHandler.ShaderProgramID, "TransSTL2CT");
 
 	ViewMatCV = Mat(4, 4, CV_32FC1, float(0));
+
+	TransSTL2CT = glm::translate(TransSTL2CT, glm::vec3(132.74, 295.74, 285.6));
 
 	while (!glfwWindowShouldClose(window))
 	{
@@ -212,6 +218,10 @@ int main()
 		glEnable(GL_DEPTH_TEST);
 		glDepthMask(GL_TRUE);
 
+		glEnable(GL_BLEND);
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+		glDisable(GL_CULL_FACE);
+
 		if (CBFound)
 		{
 			solvePnP(CB3DPts, CB2DPts, IntrinsicMat, DistParam, RotationVec, TranslationVec);
@@ -230,7 +240,23 @@ int main()
 			}
 			ViewMatCV.at<float>(3, 3) = 1;
 
+			//cout << "ViewMat: " << endl;
+			//for (int i = 0; i < 4; i++)
+			//{
+			//	cout << ViewMatCV.at<float>(i, 0) << " " << ViewMatCV.at<float>(i, 1) << " "
+			//		 << ViewMatCV.at<float>(i, 2) << " " << ViewMatCV.at<float>(i, 3) << endl;
+			//}
+			//cout << endl;
+
 			invert(ViewMatCV, InvertViewMatCV);
+
+			//cout << "InvertViewMat: " << endl;
+			//for (int i = 0; i < 4; i++)
+			//{
+			//	cout << InvertViewMatCV.at<float>(i, 0) << " " << InvertViewMatCV.at<float>(i, 1) << " "
+			//		 << InvertViewMatCV.at<float>(i, 2) << " " << InvertViewMatCV.at<float>(i, 3) << endl;
+			//}
+			//cout << endl;
 
 			glm::vec3 CamPosition(InvertViewMatCV.at<float>(0, 3), InvertViewMatCV.at<float>(1, 3), InvertViewMatCV.at<float>(2, 3));
 
@@ -240,13 +266,15 @@ int main()
 			//glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
 			//glBindVertexArray(0);
 
+			glDisable(GL_CULL_FACE);
 			ModelShaderHandler.Use();
 
 			glUniformMatrix4fv(ModelMatLoc, 1, GL_FALSE, CT2RealModelMat);
 			glUniformMatrix4fv(ViewMatLoc, 1, GL_FALSE, ExtrinsicViewMat);
 			glUniformMatrix4fv(ProjMatLoc, 1, GL_FALSE, IntrinsicProjMat);
+			glUniformMatrix4fv(TransSTL2CTLoc, 1, GL_FALSE, glm::value_ptr(TransSTL2CT));
 			glUniform3fv(CameraPosLoc, 1, glm::value_ptr(CamPosition));
-			
+
 			CTHeadModel.Draw(ModelShaderHandler);
 		}
 
@@ -312,23 +340,21 @@ GLFWwindow * kuGLInit(const char * title, int xRes, int yRes)
 	RotationMat.create(3, 3, CV_64FC1);
 	TranslationVec.create(3, 1, CV_64FC1);
 
-	if (isIntrinsicLoaded = LoadCameraParameters("IntParam_Left.txt"))
-	{
-		// set projection matrix using intrinsic camera params
-		// glMatrixMode(GL_PROJECTION);
-		// IntrinsicCVtoGL(IntrinsicMat, m);
-		// glLoadMatrixd(m);
-
+	if (isIntrinsicLoaded = LoadCameraParameters("IntParam.txt"))
+	{		
 		IntrinsicCVtoGL(IntrinsicMat, IntrinsicProjMat);
+		
+		cout << "Intrinsic Paramters: " << endl;
+		DispIntrinsicParam();
+		cout << endl;
 
+		cout << "GL Projection Matrix: " << endl;
 		for (int i = 0; i < 4; i++)
 		{
 			cout << IntrinsicProjMat[4 * i] << " " << IntrinsicProjMat[4 * i + 1] << " "
 				 << IntrinsicProjMat[4 * i + 2] << " " << IntrinsicProjMat[4 * i + 3] << endl;
 		}
 		cout << endl;
-
-		DispParam();
 	}
 
 	//SetCB3DPts();
@@ -420,7 +446,7 @@ void SetCB3DPts()
 	fclose(fp);
 }
 
-void DispParam()
+void DispIntrinsicParam()
 {
 	for (int i = 0; i < 3; i++)
 	{

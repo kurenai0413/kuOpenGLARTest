@@ -120,6 +120,8 @@
     <ClInclude Include="kuShaderHandler.h" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="AxesFragmentShader.frag" />
+    <None Include="AxesVertexShader.vert" />
     <None Include="BGImgFragmentShader.frag" />
     <None Include="BGImgVertexShader.vert" />
     <None Include="ObjectFragmentShader.frag" />

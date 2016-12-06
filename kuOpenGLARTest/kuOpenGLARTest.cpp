@@ -59,7 +59,7 @@ void					DispExtParam();
 void					SetCB3DPts();
 bool					LoadCameraParameters(char * Filename);
 void					SaveExtrinsicParameters(char * Filename);
-void					DrawAxes(float length);
+void					DrawAxes(kuShaderHandler AxesShader);
 void					IntrinsicCVtoGL(Mat IntParam, GLfloat GLProjection[16]);
 void					ExtrinsicCVtoGL(Mat RotMat, Mat TransVec, GLfloat GLModelView[16]);
 
@@ -131,14 +131,26 @@ const GLuint    CubeIndices[]
 	20, 21, 23,  21, 22, 23
 };
 
+GLfloat AxesPts[] = {
+	// position
+	0.0,   0.0,  0.0,	1.0, 0.0, 0.0,
+	25.0,  0.0,  0.0,	1.0, 0.0, 0.0,
+	0.0,   0.0,  0.0,	0.0, 1.0, 0.0,
+	0.0,  25.0,  0.0,	0.0, 1.0, 0.0,
+	0.0,   0.0,  0.0,	0.0, 0.0, 1.0,
+	0.0,   0.0, 25.0,	0.0, 0.0, 1.0
+};
+
 int main()
 {
 	Init();
 
 	kuShaderHandler		BGImgShaderHandler;
 	kuShaderHandler		ObjShaderHandler;
+	kuShaderHandler		AxesShaderHandler;
 	BGImgShaderHandler.Load("BGImgVertexShader.vert", "BGImgFragmentShader.frag");
 	ObjShaderHandler.Load("ObjectVertexShader.vert", "ObjectFragmentShader.frag");
+	AxesShaderHandler.Load("AxesVertexShader.vert", "AxesFragmentShader.frag");
 
 	GLuint CubeVertexArray = 0;
 	glGenVertexArrays(1, &CubeVertexArray);
@@ -162,6 +174,7 @@ int main()
 	// TexCoord
 	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, 0);
 	glEnableVertexAttribArray(1);
+	// 假設有在shader裡面對input定location的話，就不需要用glGetAttribLocation
 
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, CubeElementBuffer);
 	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(CubeIndices), CubeIndices, GL_STATIC_DRAW);
@@ -205,7 +218,7 @@ int main()
 
 			ExtrinsicCVtoGL(RotationMat, TranslationVec, ExtrinsicViewMat);
 
-			ObjShaderHandler.Use();
+			/*ObjShaderHandler.Use();
 
 			glBindTexture(GL_TEXTURE_2D, CubeTextureID);
 
@@ -215,7 +228,9 @@ int main()
 
 			glBindVertexArray(CubeVertexArray);
 			glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
-			glBindVertexArray(0);
+			glBindVertexArray(0);*/
+
+
 		}
 
 		glfwSwapBuffers(window);
@@ -302,28 +317,46 @@ void Init()
 	SetCB3DPts();
 }
 
-void DrawAxes(float length)
+void DrawAxes(kuShaderHandler AxesShader)
 {
-	glPushAttrib(GL_POLYGON_BIT | GL_ENABLE_BIT | GL_COLOR_BUFFER_BIT);
+	GLfloat AxesPts[] = {
+		// position
+		0.0,   0.0,  0.0,	1.0, 0.0, 0.0,
+		25.0,  0.0,  0.0,	1.0, 0.0, 0.0,
+		0.0,   0.0,  0.0,	0.0, 1.0, 0.0,
+		0.0,  25.0,  0.0,	0.0, 1.0, 0.0, 
+		0.0,   0.0,  0.0,	0.0, 0.0, 1.0,
+		0.0,   0.0, 25.0,	0.0, 0.0, 1.0
+	};
 
-	glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-	glDisable(GL_LIGHTING);
+	GLuint VertexArray = 0;
+	glGenVertexArrays(1, &VertexArray);
+	GLuint VertexBuffer = 0;				// Vertex Buffer Object (VBO)
+	glGenBuffers(1, &VertexBuffer);			// give an ID to vertex buffer
 
-	glBegin(GL_LINES);
-	glColor3f(1, 0, 0);
-	glVertex3f(0, 0, 0);
-	glVertex3f(length, 0, 0); // X-axis => red
+	glBindVertexArray(VertexArray);
+	glBindBuffer(GL_ARRAY_BUFFER, VertexBuffer); // Bind buffer as array buffer
+	glBufferData(GL_ARRAY_BUFFER, sizeof(AxesPts), AxesPts, GL_STATIC_DRAW);
 
-	glColor3f(0, 1, 0);
-	glVertex3f(0, 0, 0);
-	glVertex3f(0, length, 0); // Y-axis => green
+	// position
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(GLfloat), (GLvoid*)0);
+	glEnableVertexAttribArray(0);
 
-	glColor3f(0, 0, 1);
-	glVertex3f(0, 0, 0);
-	glVertex3f(0, 0, length); // Z-axis => blue
-	glEnd();
+	// color
+	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(GLfloat), (GLvoid*)(3 * sizeof(GLfloat)));
+	glEnableVertexAttribArray(1);
 
-	glPopAttrib();
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	glBindVertexArray(0);
+
+	AxesShader.Use();
+
+	glBindVertexArray(VertexArray);
+	//glDrawArrays(GL_TRIANGLES, 0, 3); // Starting from vertex 0; 3 vertices total -> 1 triangle
+	glEnable(GL_LINE_SMOOTH);
+	glLineWidth(5);
+	glDrawArrays(GL_LINE_STRIP, 0, 3); // Starting from vertex 0; 3 vertices total -> 1 triangle
+	glBindVertexArray(0);
 }
 
 void IntrinsicCVtoGL(Mat IntParam, GLfloat GLProjection[16])

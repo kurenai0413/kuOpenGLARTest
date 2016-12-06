@@ -43,5 +43,11 @@
     <None Include="ObjectVertexShader.vert">
       <Filter>Shaders</Filter>
     </None>
+    <None Include="AxesVertexShader.vert">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="AxesFragmentShader.frag">
+      <Filter>Shaders</Filter>
+    </None>
   </ItemGroup>
 </Project>

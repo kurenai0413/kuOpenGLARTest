@@ -132,7 +132,7 @@ const GLuint    CubeIndices[]
 };
 
 GLfloat AxesPts[] = {
-	// position
+	// position			// color
 	0.0,   0.0,  0.0,	1.0, 0.0, 0.0,
 	25.0,  0.0,  0.0,	1.0, 0.0, 0.0,
 	0.0,   0.0,  0.0,	0.0, 1.0, 0.0,
@@ -182,15 +182,36 @@ int main()
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glBindVertexArray(0);
 
+
+	GLuint VertexArray = 0;
+	glGenVertexArrays(1, &VertexArray);
+	GLuint VertexBuffer = 0;				// Vertex Buffer Object (VBO)
+	glGenBuffers(1, &VertexBuffer);			// give an ID to vertex buffer
+
+	glBindVertexArray(VertexArray);
+	glBindBuffer(GL_ARRAY_BUFFER, VertexBuffer); // Bind buffer as array buffer
+	glBufferData(GL_ARRAY_BUFFER, sizeof(AxesPts), AxesPts, GL_STATIC_DRAW);
+
+	// position
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(GLfloat), (GLvoid*)0);
+	glEnableVertexAttribArray(0);
+
+	// color
+	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(GLfloat), (GLvoid*)(3 * sizeof(GLfloat)));
+	glEnableVertexAttribArray(1);
+
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	glBindVertexArray(0);
+
 	Mat		CubeTextureImg = imread("ihatepeople.jpg");
 	GLuint	CubeTextureID = CreateTexturebyImage(CubeTextureImg);
 
 	GLuint		ModelMatLoc, ViewMatLoc, ProjMatLoc;
 	glm::mat4	ModelMat, ProjMat, ViewMat;
 
-	ViewMatLoc  = glGetUniformLocation(ObjShaderHandler.ShaderProgramID, "ViewMat");
-	ProjMatLoc  = glGetUniformLocation(ObjShaderHandler.ShaderProgramID, "ProjMat");
-	ModelMatLoc = glGetUniformLocation(ObjShaderHandler.ShaderProgramID, "ModelMat");
+	ViewMatLoc  = glGetUniformLocation(AxesShaderHandler.ShaderProgramID, "ViewMat");
+	ProjMatLoc  = glGetUniformLocation(AxesShaderHandler.ShaderProgramID, "ProjMat");
+	ModelMatLoc = glGetUniformLocation(AxesShaderHandler.ShaderProgramID, "ModelMat");
 
 	while (!glfwWindowShouldClose(window))
 	{
@@ -218,7 +239,7 @@ int main()
 
 			ExtrinsicCVtoGL(RotationMat, TranslationVec, ExtrinsicViewMat);
 
-			/*ObjShaderHandler.Use();
+			ObjShaderHandler.Use();
 
 			glBindTexture(GL_TEXTURE_2D, CubeTextureID);
 
@@ -228,9 +249,20 @@ int main()
 
 			glBindVertexArray(CubeVertexArray);
 			glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
-			glBindVertexArray(0);*/
+			glBindVertexArray(0);
 
+			AxesShaderHandler.Use();
 
+			glUniformMatrix4fv(ModelMatLoc, 1, GL_FALSE, glm::value_ptr(ModelMat));
+			glUniformMatrix4fv(ViewMatLoc, 1, GL_FALSE, ExtrinsicViewMat);
+			glUniformMatrix4fv(ProjMatLoc, 1, GL_FALSE, IntrinsicProjMat);
+
+			glBindVertexArray(VertexArray);
+			//glDrawArrays(GL_TRIANGLES, 0, 3); // Starting from vertex 0; 3 vertices total -> 1 triangle
+			glEnable(GL_LINE_SMOOTH);
+			glLineWidth(3);
+			glDrawArrays(GL_LINE_STRIP, 0, 6); // Starting from vertex 0; 3 vertices total -> 1 triangle
+			glBindVertexArray(0);
 		}
 
 		glfwSwapBuffers(window);

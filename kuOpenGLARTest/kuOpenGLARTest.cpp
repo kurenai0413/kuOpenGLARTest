@@ -144,14 +144,14 @@ int main()
 	kuShaderHandler		ObjShaderHandler;
 	kuShaderHandler		ModelShaderHandler;
 	BGImgShaderHandler.Load("BGImgVertexShader.vert", "BGImgFragmentShader.frag");
-	//ObjShaderHandler.Load("ObjectVertexShader.vert", "ObjectFragmentShader.frag");
+	ObjShaderHandler.Load("ObjectVertexShader.vert", "ObjectFragmentShader.frag");
 	ModelShaderHandler.Load("ModelVertexShader.vert", "ModelFragmentShader.frag");
 
 	LoadModelMat("TransCT2Real.txt");
 
 	kuModelObject		CTHeadModel("CTDummy-LE_5wf.stl");
 
-	/*
+	
 	GLuint CubeVertexArray = 0;
 	glGenVertexArrays(1, &CubeVertexArray);
 	GLuint CubeVertexBuffer = 0;							// Vertex Buffer Object (VBO)
@@ -183,10 +183,12 @@ int main()
 
 	Mat		CubeTextureImg = imread("ihatepeople.jpg");
 	GLuint	CubeTextureID = CreateTexturebyImage(CubeTextureImg);
-	*/
+	
 
 	GLuint		ModelMatLoc, ViewMatLoc, ProjMatLoc, CameraPosLoc, TransSTL2CTLoc;
-	glm::mat4	ModelMat, ProjMat, ViewMat;							
+	GLuint		CubeModelMatLoc, CubeViewMatLoc, CubeProjMatLoc;
+	glm::mat4	ModelMat, ProjMat, ViewMat;		
+	glm::mat4	CubeModelMat;
 	glm::mat4	TransSTL2CT;
 
 	ViewMatLoc     = glGetUniformLocation(ModelShaderHandler.ShaderProgramID, "ViewMat");			// camera extrinsic parameters
@@ -194,6 +196,10 @@ int main()
 	ModelMatLoc    = glGetUniformLocation(ModelShaderHandler.ShaderProgramID, "ModelMat");			// TransCT2Real
 	CameraPosLoc   = glGetUniformLocation(ModelShaderHandler.ShaderProgramID, "CameraPos");
 	TransSTL2CTLoc = glGetUniformLocation(ModelShaderHandler.ShaderProgramID, "TransSTL2CT");
+
+	CubeViewMatLoc = glGetUniformLocation(ObjShaderHandler.ShaderProgramID, "ViewMat");			// camera extrinsic parameters
+	CubeProjMatLoc = glGetUniformLocation(ObjShaderHandler.ShaderProgramID, "ProjMat");			// camera intrinsic parameters
+	CubeModelMatLoc = glGetUniformLocation(ObjShaderHandler.ShaderProgramID, "ModelMat");
 
 	ViewMatCV = Mat(4, 4, CV_32FC1, float(0));
 
@@ -260,11 +266,15 @@ int main()
 
 			glm::vec3 CamPosition(InvertViewMatCV.at<float>(0, 3), InvertViewMatCV.at<float>(1, 3), InvertViewMatCV.at<float>(2, 3));
 
-			//ObjShaderHandler.Use();
-			//glBindTexture(GL_TEXTURE_2D, CubeTextureID);
-			//glBindVertexArray(CubeVertexArray);
-			//glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
-			//glBindVertexArray(0);
+			ObjShaderHandler.Use();
+			glBindTexture(GL_TEXTURE_2D, CubeTextureID);
+			glBindVertexArray(CubeVertexArray);
+			glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
+			glBindVertexArray(0);
+
+			glUniformMatrix4fv(CubeModelMatLoc, 1, GL_FALSE, glm::value_ptr(CubeModelMat));
+			glUniformMatrix4fv(CubeViewMatLoc, 1, GL_FALSE, ExtrinsicViewMat);
+			glUniformMatrix4fv(CubeProjMatLoc, 1, GL_FALSE, IntrinsicProjMat);
 
 			glDisable(GL_CULL_FACE);
 			ModelShaderHandler.Use();

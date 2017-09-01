@@ -21,8 +21,8 @@ using namespace std;
 
 
 #define		pi			3.1415926
-#define		WndWidth	640
-#define		WndHeight	480
+#define		WndWidth	1280
+#define		WndHeight	1024
 #define     farClip		10000
 #define		nearClip	0.1
 
@@ -138,6 +138,21 @@ const GLuint    CubeIndices[]
 
 int main()
 {
+	Mat testCamFrame = imread("Data/LeftImage1.bmp", 1);
+
+	for (int i = 0; i < testCamFrame.cols; i++)
+	{
+		for (int j = 0; j < testCamFrame.rows; j++)
+		{
+			int		PixelIdx = testCamFrame.cols * j + i;
+			uchar	temp;
+
+			temp = testCamFrame.data[3 * PixelIdx];
+			testCamFrame.data[3 * PixelIdx] = testCamFrame.data[3 * PixelIdx + 2];
+			testCamFrame.data[3 * PixelIdx + 2] = temp;
+		}
+	}
+
 	GLFWwindow		*	window = kuGLInit("kuOpenGLARTest", WndWidth, WndHeight);
 
 	kuShaderHandler		BGImgShaderHandler;
@@ -204,16 +219,7 @@ int main()
 		glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-		CamCapture->read(CamFrame);
-
-		Mat	GrayImg;
-		cvtColor(CamFrame, GrayImg, CV_BGR2GRAY);
-
-		bool CBFound = findChessboardCorners(GrayImg, Size(5, 7), CB2DPts,
-											 CALIB_CB_ADAPTIVE_THRESH + CALIB_CB_NORMALIZE_IMAGE);
-		//drawChessboardCorners(CamFrame, Size(5, 7), Mat(CB2DPts), CBFound);
-
-		DrawBGImage(CamFrame, BGImgShaderHandler);
+		DrawBGImage(testCamFrame, BGImgShaderHandler);
 
 		glEnable(GL_DEPTH_TEST);
 		glDepthMask(GL_TRUE);
@@ -222,11 +228,8 @@ int main()
 		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 		glDisable(GL_CULL_FACE);
 
-		if (CBFound)
-		{
-			solvePnP(CB3DPts, CB2DPts, IntrinsicMat, DistParam, RotationVec, TranslationVec);
-			Rodrigues(RotationVec, RotationMat);
 
+		/*
 			ExtrinsicCVtoGL(RotationMat, TranslationVec, ExtrinsicViewMat);
 
 			for (int i = 0; i < 3; i++)
@@ -274,9 +277,9 @@ int main()
 			glUniformMatrix4fv(ProjMatLoc, 1, GL_FALSE, IntrinsicProjMat);
 			glUniformMatrix4fv(TransSTL2CTLoc, 1, GL_FALSE, glm::value_ptr(TransSTL2CT));
 			glUniform3fv(CameraPosLoc, 1, glm::value_ptr(CamPosition));
+			*/
 
-			CTHeadModel.Draw(ModelShaderHandler);
-		}
+			//CTHeadModel.Draw(ModelShaderHandler);
 
 		glfwSwapBuffers(window);
 		glfwPollEvents();					// This function processes only those events that are already 
@@ -563,7 +566,7 @@ GLuint CreateTexturebyImage(Mat Img)
 {
 	GLuint	texture;
 
-	for (int i = 0; i < Img.cols; i++)
+	/*for (int i = 0; i < Img.cols; i++)
 	{
 		for (int j = 0; j < Img.rows; j++)
 		{
@@ -574,7 +577,7 @@ GLuint CreateTexturebyImage(Mat Img)
 			Img.data[3 * PixelIdx] = Img.data[3 * PixelIdx + 2];
 			Img.data[3 * PixelIdx + 2] = temp;
 		}
-	}
+	}*/
 
 	glGenTextures(1, &texture);
 	glBindTexture(GL_TEXTURE_2D, texture);
